@@ -1,0 +1,48 @@
+name: ChurnOps CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  basic-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check core imports
+        run: |
+          python -c "import pandas, numpy, sklearn, mlflow, fastapi, joblib, matplotlib"
+          python -c "import src.api.schemas"
+
+      - name: Check repository structure
+        run: |
+          test -d src
+          test -d src/data
+          test -d src/features
+          test -d src/models
+          test -d src/api
+          test -d src/monitoring
+          test -d tests
+          test -d configs
+          test -f requirements.txt
+          test -f Dockerfile
+          test -f README.md

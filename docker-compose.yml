@@ -1,0 +1,12 @@
+services:
+  churnops-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: churnops-api:latest
+    container_name: churnops-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./reports:/app/reports
