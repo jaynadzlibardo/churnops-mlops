@@ -757,7 +757,152 @@ elif page == "Monitoring & Drift":
 
 elif page == "Batch Predictions":
     st.title("Batch Predictions")
-    st.info("Later phase: batch scoring table, risk bands, churn probability charts, and CSV download.")
+    st.caption(
+        "Operational batch scoring output for customer churn risk prioritization."
+    )
+
+    st.divider()
+
+    batch_results_df = pd.DataFrame(
+        [
+            {
+                "customer_id": "CUST-001",
+                "churn_probability": 0.8845,
+                "risk_band": "High Risk",
+                "recommended_action": "Priority retention call",
+            },
+            {
+                "customer_id": "CUST-002",
+                "churn_probability": 0.7200,
+                "risk_band": "High Risk",
+                "recommended_action": "Review plan and offer retention incentive",
+            },
+            {
+                "customer_id": "CUST-003",
+                "churn_probability": 0.2300,
+                "risk_band": "Low Risk",
+                "recommended_action": "No immediate action",
+            },
+            {
+                "customer_id": "CUST-004",
+                "churn_probability": 0.1200,
+                "risk_band": "Low Risk",
+                "recommended_action": "No immediate action",
+            },
+        ]
+    )
+
+    high_risk_count = 2
+    medium_risk_count = 0
+    low_risk_count = 2
+    total_scored = 4
+
+    st.subheader("Batch Scoring Summary")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Customers Scored", total_scored)
+    col2.metric("High Risk", high_risk_count)
+    col3.metric("Medium Risk", medium_risk_count)
+    col4.metric("Low Risk", low_risk_count)
+
+    st.divider()
+
+    st.subheader("Risk Band Distribution")
+
+    risk_distribution_df = pd.DataFrame(
+        {
+            "Risk Band": ["High Risk", "Medium Risk", "Low Risk"],
+            "Customer Count": [
+                high_risk_count,
+                medium_risk_count,
+                low_risk_count,
+            ],
+        }
+    )
+
+    fig, ax = plt.subplots(figsize=(5, 3))
+
+    ax.barh(
+        risk_distribution_df["Risk Band"],
+        risk_distribution_df["Customer Count"],
+    )
+
+    ax.set_xlabel("Customer Count")
+    ax.set_title("Batch Prediction Risk Distribution")
+
+    for index, value in enumerate(risk_distribution_df["Customer Count"]):
+        ax.text(
+            value + 0.05,
+            index,
+            str(value),
+            va="center",
+            fontsize=9,
+        )
+
+    ax.set_xlim(0, total_scored + 1)
+    fig.tight_layout()
+    st.pyplot(fig, use_container_width=False)
+
+    st.divider()
+
+    st.subheader("Scored Customer Output")
+
+    st.dataframe(batch_results_df, use_container_width=True)
+
+    csv_data = batch_results_df.to_csv(index=False)
+
+    st.download_button(
+        label="Download Batch Prediction Results",
+        data=csv_data,
+        file_name="batch_predictions.csv",
+        mime="text/csv",
+    )
+
+    st.divider()
+
+    st.subheader("Retention Action Mapping")
+
+    action_mapping_df = pd.DataFrame(
+        [
+            {
+                "Risk Band": "High Risk",
+                "Probability Rule": "churn_probability >= 0.60",
+                "Business Action": "Prioritize for retention outreach.",
+                "Owner": "Retention team",
+            },
+            {
+                "Risk Band": "Medium Risk",
+                "Probability Rule": "0.40 <= churn_probability < 0.60",
+                "Business Action": "Monitor or send low-cost engagement offer.",
+                "Owner": "Customer success / marketing",
+            },
+            {
+                "Risk Band": "Low Risk",
+                "Probability Rule": "churn_probability < 0.40",
+                "Business Action": "No immediate retention action.",
+                "Owner": "No action needed",
+            },
+        ]
+    )
+
+    st.dataframe(action_mapping_df, use_container_width=True)
+
+    st.divider()
+
+    st.subheader("Business Recommendation")
+
+    st.success(
+        "Recommendation: Prioritize the 2 high-risk customers for immediate retention outreach."
+    )
+
+    st.info(
+        "Business decision: Use the batch prediction output as a daily or weekly retention queue for the customer success team."
+    )
+
+    st.warning(
+        "Operational note: This page currently uses the known sample batch output. In the next iteration, connect it directly to the generated batch_predictions.csv file from the pipeline."
+    )
 
 elif page == "MLOps System Health":
     st.title("MLOps System Health")
