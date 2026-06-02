@@ -2,7 +2,7 @@
 
 ## 1. Project Overview
 
-**ChurnOps** is an end-to-end MLOps system for predicting telecom customer churn. The project demonstrates how a machine learning model can move beyond notebook experimentation into a reproducible and deployable ML system.
+**ChurnOps** is an end-to-end MLOps system for predicting telecom customer churn. The project demonstrates how a machine learning model can move beyond notebook experimentation into a reproducible, testable, deployable, and monitorable ML system.
 
 The system covers the full MLOps lifecycle:
 
@@ -20,7 +20,7 @@ Business Problem
 → Docker Containerization
 → Monitoring and Drift Detection
 → Batch Prediction
-→ Dashboard
+→ Streamlit Dashboard
 → CI/CD
 → Reproducibility
 ```
@@ -39,7 +39,25 @@ Instead of sending retention offers to every customer, the company can focus on 
 
 ---
 
-## 3. Dataset
+## 3. Project Goal
+
+Build an end-to-end MLOps system that can:
+
+1. Validate raw customer churn data.
+2. Preprocess data without leakage.
+3. Train and compare machine learning models.
+4. Track experiments and metrics using MLflow.
+5. Register the best model as a champion model.
+6. Serve predictions through FastAPI.
+7. Containerize the API with Docker.
+8. Monitor data drift and prediction drift.
+9. Run batch prediction for customer retention prioritization.
+10. Present model results through a Streamlit dashboard.
+11. Validate code quality through Pytest and GitHub Actions.
+
+---
+
+## 4. Dataset
 
 The project uses the public **Telco Customer Churn** dataset.
 
@@ -75,11 +93,15 @@ TotalCharges
 Churn
 ```
 
-The dataset is not committed to the repository. To reproduce the project, download the public Telco Customer Churn dataset and place it in the `data/raw/` folder using the filename `telco_churn.csv`.
+The dataset is not committed to the repository. To reproduce the project, download the public Telco Customer Churn dataset and place it in the `data/raw/` folder using the filename:
+
+```text
+telco_churn.csv
+```
 
 ---
 
-## 4. Target, Features, and Metrics
+## 5. Target, Features, and Metrics
 
 ### Target Variable
 
@@ -112,11 +134,12 @@ The `customerID` column is removed because it is an identifier and should not be
 | Confusion matrix | Shows false positives and false negatives             |
 
 The primary model selection metric is **ROC-AUC**.
+
 The key business metric is **recall**, because missed churners may represent lost revenue.
 
 ---
 
-## 5. System Architecture
+## 6. System Architecture
 
 ```text
 Raw Data
@@ -143,15 +166,29 @@ Dockerized API
    ↓
 Monitoring and Drift Detection
    ↓
-Batch Prediction and Dashboard
+Batch Prediction
+   ↓
+Streamlit MLOps Dashboard
+   ↓
+CI/CD and Reproducibility
 ```
 
 ---
 
-## 6. Repository Structure
+## 7. Repository Structure
 
 ```text
 churnops-mlops/
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+│
+├── configs/
+│   └── config.yaml
+│
+├── dashboard/
+│   └── streamlit_app.py
 │
 ├── data/
 │   ├── raw/
@@ -159,10 +196,25 @@ churnops-mlops/
 │   ├── processed/
 │   └── batch/
 │
+├── docker/
+│
+├── mlruns/
+│
+├── models/
+│
 ├── notebooks/
 │   └── 01_eda.ipynb
 │
+├── reports/
+│
 ├── src/
+│   ├── api/
+│   │   ├── main.py
+│   │   └── schemas.py
+│   │
+│   ├── batch/
+│   │   └── batch_predict.py
+│   │
 │   ├── data/
 │   │   ├── ingest_data.py
 │   │   └── validate_data.py
@@ -171,78 +223,60 @@ churnops-mlops/
 │   │   └── build_features.py
 │   │
 │   ├── models/
-│   │   ├── train_model.py
 │   │   ├── evaluate_model.py
-│   │   ├── register_model.py
 │   │   ├── feature_importance.py
-│   │   └── threshold_analysis.py
+│   │   ├── register_model.py
+│   │   ├── threshold_analysis.py
+│   │   └── train_model.py
 │   │
-│   ├── api/
-│   │   ├── main.py
-│   │   └── schemas.py
-│   │
-│   ├── monitoring/
-│   │   └── generate_drift_report.py
-│   │
-│   ├── batch/
-│   │   └── batch_predict.py
-│   │
-│   └── dashboard/
-│       └── app.py
+│   └── monitoring/
+│       └── generate_drift_report.py
 │
 ├── tests/
 │   ├── test_api.py
 │   ├── test_data_validation.py
 │   └── test_model_prediction.py
 │
-├── configs/
-│   └── config.yaml
-│
-├── reports/
-├── models/
-├── docker/
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-│
-├── requirements.txt
-├── Dockerfile
+├── .dockerignore
+├── .gitignore
 ├── docker-compose.yml
+├── Dockerfile
+├── Makefile
 ├── pytest.ini
 ├── README.md
-└── .gitignore
+└── requirements.txt
 ```
 
 ---
 
-## 7. Tools Used
+## 8. Tools Used
 
-| Tool           | Purpose                                |
-| -------------- | -------------------------------------- |
-| Python         | Main programming language              |
-| Pandas         | Data loading and validation            |
-| Scikit-learn   | Preprocessing, modeling, and metrics   |
-| MLflow         | Experiment tracking and model registry |
-| FastAPI        | Model serving API                      |
-| Docker         | Containerized deployment               |
-| Streamlit      | Business-facing dashboard              |
-| Pytest         | Automated local tests                  |
-| GitHub Actions | CI/CD checks                           |
-| Matplotlib     | Plots and model evidence               |
-| Joblib         | Model serialization                    |
+| Tool           | Purpose                                      |
+| -------------- | -------------------------------------------- |
+| Python         | Main programming language                    |
+| Pandas         | Data loading, transformation, and validation |
+| Scikit-learn   | Preprocessing, modeling, and metrics         |
+| MLflow         | Experiment tracking and model registry       |
+| FastAPI        | Model serving API                            |
+| Docker         | Containerized deployment                     |
+| Streamlit      | Business-facing MLOps dashboard              |
+| Pytest         | Automated local tests                        |
+| GitHub Actions | CI/CD checks                                 |
+| Matplotlib     | Dashboard and model evidence charts          |
+| Joblib         | Model serialization                          |
 
 ---
 
-## 8. Setup Instructions
+## 9. Setup Instructions
 
-### 8.1 Clone the Repository
+### 9.1 Clone the Repository
 
 ```bash
 git clone https://github.com/jaynadzlibardo/churnops-mlops.git
 cd churnops-mlops
 ```
 
-### 8.2 Create a Virtual Environment
+### 9.2 Create a Virtual Environment
 
 Windows PowerShell:
 
@@ -258,14 +292,14 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 8.3 Install Dependencies
+### 9.3 Install Dependencies
 
 ```bash
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 8.4 Add Dataset
+### 9.4 Add Dataset
 
 Download the public Telco Customer Churn dataset and save it as:
 
@@ -275,9 +309,9 @@ data/raw/telco_churn.csv
 
 ---
 
-## 9. How to Run the Project
+## 10. How to Run the Project
 
-### 9.1 Data Validation
+### 10.1 Data Validation
 
 ```bash
 python src/data/validate_data.py
@@ -289,11 +323,18 @@ Output:
 reports/data_validation_report.json
 ```
 
-This checks required columns, row count, missing values, duplicate rows, target distribution, and `TotalCharges` quality.
+This checks:
+
+* Required columns
+* Row count
+* Missing values
+* Duplicate rows
+* Target distribution
+* `TotalCharges` quality
 
 ---
 
-### 9.2 Preprocessing and Feature Engineering
+### 10.2 Preprocessing and Feature Engineering
 
 ```bash
 python src/features/build_features.py
@@ -313,7 +354,7 @@ The data is split using stratification. The preprocessor is fitted only on the t
 
 ---
 
-### 9.3 Model Training with MLflow
+### 10.3 Model Training with MLflow
 
 ```bash
 python src/models/train_model.py
@@ -337,7 +378,7 @@ mlruns/
 
 ---
 
-### 9.4 Launch MLflow UI
+### 10.4 Launch MLflow UI
 
 ```bash
 mlflow ui --host 127.0.0.1 --port 5000
@@ -349,11 +390,17 @@ Open:
 http://127.0.0.1:5000
 ```
 
-MLflow shows model runs, parameters, metrics, artifacts, and registered model versions.
+MLflow shows:
+
+* Model runs
+* Parameters
+* Metrics
+* Artifacts
+* Registered model versions
 
 ---
 
-### 9.5 Final Test Evaluation
+### 10.5 Final Test Evaluation
 
 ```bash
 python src/models/evaluate_model.py
@@ -364,6 +411,12 @@ Outputs:
 ```text
 reports/test_metrics_report.json
 reports/test_confusion_matrix.png
+```
+
+Final selected model:
+
+```text
+Logistic Regression baseline
 ```
 
 Final test results from the current run:
@@ -387,14 +440,14 @@ Confusion matrix values:
 
 Business interpretation:
 
-* The model caught 219 churners.
-* The model missed 62 churners.
+* The model caught **219 churners**.
+* The model missed **62 churners**.
 * False negatives are costly because they represent customers who may leave without intervention.
-* False positives may waste retention offers but are less severe if the retention campaign cost is low.
+* False positives may waste retention offers but are less severe if the retention campaign cost is lower than the cost of losing a customer.
 
 ---
 
-### 9.6 Register Best Model in MLflow
+### 10.6 Register Best Model in MLflow
 
 ```bash
 python src/models/register_model.py
@@ -420,7 +473,7 @@ reports/model_registry_report.json
 
 ---
 
-### 9.7 Run FastAPI Locally
+### 10.7 Run FastAPI Locally
 
 ```bash
 uvicorn src.api.main:app --reload --host 127.0.0.1 --port 8000
@@ -478,7 +531,7 @@ business_action   : Prioritize for retention campaign or proactive customer supp
 
 ---
 
-### 9.8 Docker Deployment
+### 10.8 Docker Deployment
 
 Build Docker image:
 
@@ -507,7 +560,7 @@ docker rm churnops-api-container
 
 ---
 
-### 9.9 Monitoring and Drift Detection
+### 10.9 Monitoring and Drift Detection
 
 ```bash
 python src/monitoring/generate_drift_report.py
@@ -544,7 +597,7 @@ Business interpretation:
 
 ---
 
-### 9.10 Batch Prediction
+### 10.10 Batch Prediction
 
 ```bash
 python src/batch/batch_predict.py
@@ -570,9 +623,13 @@ Current batch result:
 | Medium     |     0 |
 | Low        |     2 |
 
+Business interpretation:
+
+> The retention team should prioritize high-risk customers for immediate outreach.
+
 ---
 
-### 9.11 Feature Importance
+### 10.11 Feature Importance
 
 ```bash
 python src/models/feature_importance.py
@@ -598,13 +655,23 @@ Top churn drivers from the current model:
 |    6 | InternetService_DSL         |     0.5068 |
 |    7 | MonthlyCharges              |     0.5007 |
 
+Business interpretation:
+
+| Driver                  | Possible Business Action                                             |
+| ----------------------- | -------------------------------------------------------------------- |
+| Low tenure              | Improve onboarding and early-life customer support                   |
+| Month-to-month contract | Offer loyalty discounts or contract upgrade incentives               |
+| High monthly charges    | Review pricing, bundles, and value communication                     |
+| Fiber optic service     | Investigate service quality, speed, pricing, and customer complaints |
+| High total charges      | Prioritize high-value customers for proactive retention              |
+
 Note:
 
 > Feature importance shows model influence, not guaranteed causality.
 
 ---
 
-### 9.12 Threshold Analysis
+### 10.12 Threshold Analysis
 
 ```bash
 python src/models/threshold_analysis.py
@@ -640,12 +707,18 @@ Business interpretation:
 * Higher threshold reduces false positives but misses more churners.
 * Threshold choice depends on retention budget and business risk tolerance.
 
+Recommended initial policy:
+
+> Use a `0.60` threshold for the first retention campaign, then adjust based on retention budget, campaign conversion, and cost per offer.
+
 ---
 
-### 9.13 Streamlit Dashboard
+### 10.13 Streamlit MLOps Dashboard
+
+Run the dashboard:
 
 ```bash
-streamlit run src/dashboard/app.py
+streamlit run dashboard/streamlit_app.py
 ```
 
 Open:
@@ -654,17 +727,48 @@ Open:
 http://localhost:8501
 ```
 
-Dashboard sections:
+The Streamlit dashboard acts as a business-facing MLOps control room.
 
-1. Manual churn prediction
-2. Final test metrics
-3. Feature importance
-4. Threshold analysis
-5. Monitoring summary
+Dashboard pages:
+
+| Page                | Purpose                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------- |
+| Executive Overview  | Shows model performance, monitoring health, batch scoring summary, and project health |
+| Model Performance   | Shows final test metrics and business interpretation                                  |
+| Confusion Matrix    | Shows true positives, false positives, false negatives, and business error analysis   |
+| Threshold Analysis  | Shows decision threshold trade-offs and recommended retention policy                  |
+| Feature Importance  | Shows top churn drivers and business actions                                          |
+| Monitoring & Drift  | Shows drift status, retraining decision, and monitoring policy                        |
+| Batch Predictions   | Shows scored customers, risk bands, and retention action mapping                      |
+| MLOps System Health | Shows production-readiness checklist and architecture flow                            |
+
+The dashboard helps answer:
+
+* Is the champion model performing well?
+* How many churners were captured or missed?
+* What threshold should the business use?
+* What features are driving churn?
+* Is there data drift or prediction drift?
+* Should the model be retrained?
+* Which customers should be prioritized for retention?
+* Is the MLOps system production-ready as a portfolio demo?
+
+Current dashboard status:
+
+| Dashboard Page      | Status   |
+| ------------------- | -------- |
+| Executive Overview  | Complete |
+| Model Performance   | Complete |
+| Confusion Matrix    | Complete |
+| Threshold Analysis  | Complete |
+| Feature Importance  | Complete |
+| Monitoring & Drift  | Complete |
+| Batch Predictions   | Complete |
+| MLOps System Health | Complete |
 
 ---
 
-### 9.14 Run Tests
+### 10.14 Run Tests
 
 ```bash
 pytest tests/
@@ -686,7 +790,7 @@ The tests validate:
 
 ---
 
-## 10. CI/CD
+## 11. CI/CD
 
 This project includes GitHub Actions:
 
@@ -711,7 +815,7 @@ The full model/API functional tests are run locally because data and model artif
 
 ---
 
-## 11. Demo Walkthrough
+## 12. Demo Walkthrough
 
 Recommended demo order:
 
@@ -747,7 +851,45 @@ Recommended demo order:
 
 ---
 
-## 12. Demo Evidence Checklist
+## 13. Dashboard Demo Flow
+
+Recommended dashboard demo order:
+
+1. **Executive Overview**
+
+   * Show ROC-AUC, recall, monitoring status, and project health.
+
+2. **Model Performance**
+
+   * Explain why recall and ROC-AUC matter for churn prioritization.
+
+3. **Confusion Matrix**
+
+   * Highlight that the model caught 219 churners and missed 62.
+
+4. **Threshold Analysis**
+
+   * Explain the business trade-off between campaign cost and missed churners.
+
+5. **Feature Importance**
+
+   * Translate churn drivers into retention actions.
+
+6. **Monitoring & Drift**
+
+   * Show that 19 features were monitored, 0 drifted, and retraining is not needed.
+
+7. **Batch Predictions**
+
+   * Show the retention queue: 2 high-risk customers, 0 medium-risk, 2 low-risk.
+
+8. **MLOps System Health**
+
+   * Close by showing the system is not just a notebook. It includes testing, CI, registry, API, Docker, monitoring, batch scoring, and dashboard reporting.
+
+---
+
+## 14. Demo Evidence Checklist
 
 | Evidence                              | Status       |
 | ------------------------------------- | ------------ |
@@ -775,10 +917,11 @@ Recommended demo order:
 | Feature importance chart              | Nice-to-have |
 | Threshold analysis chart              | Nice-to-have |
 | Streamlit dashboard                   | Nice-to-have |
+| Dashboard screenshots                 | Nice-to-have |
 
 ---
 
-## 13. Key Results
+## 15. Key Results
 
 Final selected model:
 
@@ -788,7 +931,7 @@ Logistic Regression baseline
 
 Reason:
 
-> It achieved the best validation ROC-AUC.
+> It achieved the best validation ROC-AUC and provides interpretability for business users.
 
 Final test ROC-AUC:
 
@@ -802,37 +945,15 @@ Final test recall:
 0.7794
 ```
 
+Final test F1-score:
+
+```text
+0.6213
+```
+
 Business meaning:
 
 > The model successfully catches about 78% of actual churners on the test set, helping the retention team reduce missed churn-risk customers.
-
----
-
-## 14. Limitations
-
-1. The dataset is static and does not represent a real-time production stream.
-2. The model predicts churn risk but does not prove causality.
-3. Actual business value depends on the effectiveness and cost of the retention campaign.
-4. Monitoring is simulated using validation and test splits.
-5. Real production monitoring would require new incoming customer data and actual churn outcomes.
-6. The model artifact and dataset are not committed to Git, so users must rerun the pipeline locally.
-
----
-
-## 15. Future Work
-
-Possible upgrades:
-
-1. Deploy FastAPI to a cloud service.
-2. Add DVC for data versioning.
-3. Add Prometheus and Grafana for API monitoring.
-4. Add automated retraining when drift persists.
-5. Add batch scoring from cloud storage.
-6. Add fairness or bias analysis.
-7. Add customer lifetime value to prioritize high-value churners.
-8. Add campaign ROI calculation.
-9. Add model explainability using SHAP.
-10. Add scheduled monitoring jobs.
 
 ---
 
@@ -848,6 +969,68 @@ Instead of only reporting model accuracy, ChurnOps provides:
 * Batch scoring for campaign planning
 * API serving for application integration
 * Monitoring to detect drift
+* Threshold tuning for retention budget control
+* Dashboard reporting for business stakeholders
 * Reproducibility through scripts, Docker, tests, and CI/CD
 
 The main business impact is better retention targeting, reduced wasted campaign effort, and lower risk of losing high-risk customers without intervention.
+
+---
+
+## 17. Limitations
+
+1. The dataset is static and does not represent a real-time production stream.
+2. The model predicts churn risk but does not prove causality.
+3. Actual business value depends on the effectiveness and cost of the retention campaign.
+4. Monitoring is simulated using validation and test splits.
+5. Real production monitoring would require new incoming customer data and actual churn outcomes.
+6. The model artifact and dataset are not committed to Git, so users must rerun the pipeline locally.
+7. Some dashboard values are currently based on the latest known run outputs. A future improvement is to load all values directly from generated report files.
+
+---
+
+## 18. Future Work
+
+Possible upgrades:
+
+1. Replace remaining hardcoded dashboard values with generated report files.
+2. Add dashboard screenshots to the README.
+3. Deploy FastAPI to a cloud service.
+4. Deploy Streamlit dashboard to a hosted environment.
+5. Add DVC for data versioning.
+6. Add Prometheus and Grafana for API monitoring.
+7. Add automated retraining when drift persists.
+8. Add batch scoring from cloud storage.
+9. Add fairness or bias analysis.
+10. Add customer lifetime value to prioritize high-value churners.
+11. Add campaign ROI calculation.
+12. Add model explainability using SHAP.
+13. Add scheduled monitoring jobs.
+14. Add model comparison dashboard for champion vs challenger models.
+
+---
+
+## 19. Portfolio Summary
+
+**ChurnOps** demonstrates a production-style MLOps workflow for telecom churn prediction.
+
+The project includes:
+
+* Data validation
+* Reproducible preprocessing
+* Train/validation/test split
+* Baseline and improved model training
+* MLflow experiment tracking
+* MLflow model registry
+* Champion model selection
+* FastAPI model serving
+* Dockerized deployment
+* Monitoring and drift detection
+* Batch prediction
+* Feature importance
+* Threshold analysis
+* Streamlit dashboard
+* Pytest validation
+* GitHub Actions CI/CD
+
+This project shows how machine learning outputs can be translated into business decisions for customer retention.
