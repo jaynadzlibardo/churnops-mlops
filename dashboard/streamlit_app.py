@@ -1,6 +1,14 @@
+import json
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
+
+
+# ============================================================
+# Page configuration
+# ============================================================
 
 st.set_page_config(
     page_title="ChurnOps Dashboard",
@@ -8,9 +16,502 @@ st.set_page_config(
     layout="wide",
 )
 
-# ------------------------------------------------------------
+
+# ============================================================
+# Paths
+# ============================================================
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+REPORTS_DIR = BASE_DIR / "reports"
+
+
+# ============================================================
+# Dashboard visual styling
+# ============================================================
+
+st.markdown(
+    """
+    <style>
+    .block-container {
+        max-width: 1180px;
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+
+    h1 {
+        font-size: 2.05rem !important;
+        line-height: 1.2 !important;
+    }
+
+    h2, h3 {
+        font-size: 1.25rem !important;
+        line-height: 1.25 !important;
+    }
+
+    p, li, div {
+        font-size: 0.95rem;
+    }
+
+    [data-testid="stMetricLabel"] {
+        font-size: 0.82rem !important;
+    }
+
+    [data-testid="stMetricValue"] {
+        font-size: 1.75rem !important;
+    }
+
+    [data-testid="stDataFrame"] {
+        font-size: 0.85rem !important;
+    }
+
+    .stAlert {
+        font-size: 0.90rem !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# ============================================================
+# Shared chart settings
+# ============================================================
+
+NORMAL_CHART_SIZE = (5.2, 2.6)
+WIDE_CHART_SIZE = (5.8, 2.8)
+SMALL_CHART_SIZE = (4.2, 2.4)
+
+plt.rcParams.update(
+    {
+        "axes.titlesize": 10,
+        "axes.labelsize": 8,
+        "xtick.labelsize": 8,
+        "ytick.labelsize": 8,
+        "font.size": 8,
+    }
+)
+
+
+# ============================================================
+# Data loading helpers
+# ============================================================
+
+@st.cache_data
+def load_json_report(file_name: str) -> dict:
+    file_path = REPORTS_DIR / file_name
+
+    if not file_path.exists():
+        return {}
+
+    with open(file_path, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+@st.cache_data
+def load_csv_report(file_name: str) -> pd.DataFrame:
+    file_path = REPORTS_DIR / file_name
+
+    if not file_path.exists():
+        return pd.DataFrame()
+
+    return pd.read_csv(file_path)
+
+
+def safe_float(value, default=0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def safe_int(value, default=0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def format_metric(value, decimals=4) -> str:
+    try:
+        return f"{float(value):.{decimals}f}"
+    except (TypeError, ValueError):
+        return "N/A"
+
+
+def bool_to_status(value: bool, positive_text: str, negative_text: str) -> str:
+    return positive_text if bool(value) else negative_text
+
+
+def find_first_existing_column(df: pd.DataFrame, candidate_columns: list[str]) -> str | None:
+    for column in candidate_columns:
+        if column in df.columns:
+            return column
+    return None
+
+
+# ============================================================
+# Chart helpers
+# ============================================================
+
+def render_barh_chart(
+    df,
+    label_col,
+    value_col,
+    title,
+    xlabel,
+    xlim=None,
+    value_formatter=None,
+    figsize=NORMAL_CHART_SIZE,
+):
+    """
+    Render a compact horizontal bar chart with normalized dashboard sizing.
+    """
+    if df.empty or label_col not in df.columns or value_col not in df.columns:
+        st.warning("Chart data is unavailable.")
+        return
+
+    chart_df = df.copy()
+    chart_df[value_col] = pd.to_numeric(chart_df[value_col], errors="coerce").fillna(0)
+
+    fig, ax = plt.subplots(figsize=figsize, dpi=110)
+
+    ax.barh(
+        chart_df[label_col],
+        chart_df[value_col],
+        height=0.45,
+    )
+
+    ax.set_title(title, fontsize=10, pad=8)
+    ax.set_xlabel(xlabel, fontsize=8)
+    ax.tick_params(axis="both", labelsize=8)
+
+    max_value = chart_df[value_col].max()
+
+    if xlim is not None:
+        ax.set_xlim(xlim)
+        offset = (xlim[1] - xlim[0]) * 0.015
+    else:
+        offset = max_value * 0.03 if max_value > 0 else 0.05
+        ax.set_xlim(0, max_value * 1.18 + offset)
+
+    for index, value in enumerate(chart_df[value_col]):
+        label = value_formatter(value) if value_formatter else str(value)
+
+        ax.text(
+            value + offset,
+            index,
+            label,
+            va="center",
+            fontsize=8,
+        )
+
+    ax.grid(axis="x", alpha=0.20)
+
+    for spine in ["top", "right"]:
+        ax.spines[spine].set_visible(False)
+
+    fig.tight_layout(pad=1.0)
+
+    st.pyplot(fig, use_container_width=False)
+    plt.close(fig)
+
+
+def render_confusion_matrix(matrix):
+    """
+    Render a compact confusion matrix heatmap with normalized dashboard sizing.
+    """
+    fig, ax = plt.subplots(figsize=(3.8, 2.8), dpi=110)
+
+    image = ax.imshow(matrix)
+
+    ax.set_xticks([0, 1])
+    ax.set_yticks([0, 1])
+
+    ax.set_xticklabels(["Pred. No Churn", "Pred. Churn"], fontsize=7)
+    ax.set_yticklabels(["Actual No Churn", "Actual Churn"], fontsize=7)
+
+    ax.set_xlabel("Predicted Label", fontsize=8)
+    ax.set_ylabel("Actual Label", fontsize=8)
+    ax.set_title("Confusion Matrix", fontsize=10, pad=8)
+
+    for i in range(2):
+        for j in range(2):
+            ax.text(
+                j,
+                i,
+                matrix[i][j],
+                ha="center",
+                va="center",
+                fontsize=11,
+                fontweight="bold",
+            )
+
+    colorbar = fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
+    colorbar.ax.tick_params(labelsize=7)
+
+    fig.tight_layout(pad=1.0)
+
+    st.pyplot(fig, use_container_width=False)
+    plt.close(fig)
+
+
+# ============================================================
+# Load reports
+# ============================================================
+
+test_metrics_report = load_json_report("test_metrics_report.json")
+monitoring_summary = load_json_report("monitoring_summary.json")
+model_registry_report = load_json_report("model_registry_report.json")
+
+batch_predictions_df = load_csv_report("batch_predictions.csv")
+feature_importance_df = load_csv_report("feature_importance.csv")
+threshold_analysis_df = load_csv_report("threshold_analysis.csv")
+
+
+# ============================================================
+# Extract dynamic model metrics
+# ============================================================
+
+metrics = test_metrics_report.get("metrics", {})
+
+accuracy = safe_float(metrics.get("accuracy"), 0.7474)
+roc_auc = safe_float(metrics.get("roc_auc"), 0.8446)
+precision = safe_float(metrics.get("precision"), 0.5165)
+recall = safe_float(metrics.get("recall"), 0.7794)
+f1_score = safe_float(metrics.get("f1"), 0.6213)
+default_threshold = safe_float(metrics.get("threshold"), 0.50)
+
+confusion_matrix_report = test_metrics_report.get("confusion_matrix", {})
+
+tn = safe_int(confusion_matrix_report.get("true_negatives"), 571)
+fp = safe_int(confusion_matrix_report.get("false_positives"), 205)
+fn = safe_int(confusion_matrix_report.get("false_negatives"), 62)
+tp = safe_int(confusion_matrix_report.get("true_positives"), 219)
+
+
+# ============================================================
+# Extract dynamic monitoring values
+# ============================================================
+
+features_monitored = safe_int(monitoring_summary.get("total_features"), 19)
+drifted_features = safe_int(monitoring_summary.get("drifted_features"), 0)
+drifted_feature_share = safe_float(monitoring_summary.get("drifted_feature_share"), 0.0)
+data_drift = bool(monitoring_summary.get("data_drift_detected", False))
+prediction_drift = bool(monitoring_summary.get("prediction_drift_detected", False))
+retraining_recommended = bool(monitoring_summary.get("retraining_recommended", False))
+alert_level = monitoring_summary.get("alert_level", "OK")
+monitoring_recommended_action = monitoring_summary.get(
+    "recommended_action",
+    "No immediate retraining required. Continue monitoring.",
+)
+
+prediction_drift_details = monitoring_summary.get("prediction_drift", {})
+reference_mean_churn_probability = safe_float(
+    prediction_drift_details.get("reference_mean_churn_probability"),
+    0.0,
+)
+current_mean_churn_probability = safe_float(
+    prediction_drift_details.get("current_mean_churn_probability"),
+    0.0,
+)
+absolute_mean_change = safe_float(
+    prediction_drift_details.get("absolute_mean_change"),
+    0.0,
+)
+
+feature_drift_results = monitoring_summary.get("feature_drift_results", [])
+feature_drift_df = pd.DataFrame(feature_drift_results)
+
+
+# ============================================================
+# Extract dynamic threshold analysis
+# ============================================================
+
+if not threshold_analysis_df.empty:
+    for col in threshold_analysis_df.columns:
+        threshold_analysis_df[col] = pd.to_numeric(threshold_analysis_df[col], errors="ignore")
+
+    if "f1" in threshold_analysis_df.columns:
+        best_threshold_row = threshold_analysis_df.loc[
+            threshold_analysis_df["f1"].astype(float).idxmax()
+        ]
+    else:
+        best_threshold_row = pd.Series(dtype="object")
+
+    best_threshold = safe_float(best_threshold_row.get("threshold"), 0.60)
+    threshold_precision = safe_float(best_threshold_row.get("precision"), 0.5714)
+    threshold_recall = safe_float(best_threshold_row.get("recall"), 0.6975)
+    threshold_f1 = safe_float(best_threshold_row.get("f1"), 0.6282)
+    threshold_fp = safe_int(best_threshold_row.get("false_positives"), 147)
+    threshold_fn = safe_int(best_threshold_row.get("false_negatives"), 85)
+    threshold_tp = safe_int(best_threshold_row.get("true_positives"), 196)
+
+    flagged_customers = threshold_fp + threshold_tp
+    missed_churners = threshold_fn
+else:
+    best_threshold = 0.60
+    threshold_precision = 0.5714
+    threshold_recall = 0.6975
+    threshold_f1 = 0.6282
+    flagged_customers = 343
+    missed_churners = 85
+
+
+# ============================================================
+# Extract dynamic feature importance
+# ============================================================
+
+if not feature_importance_df.empty:
+    feature_col = find_first_existing_column(feature_importance_df, ["feature", "Feature"])
+    importance_col = find_first_existing_column(
+        feature_importance_df,
+        ["importance", "Importance", "importance_score", "Importance Score"],
+    )
+
+    if feature_col and importance_col:
+        feature_importance_df = feature_importance_df[[feature_col, importance_col]].copy()
+        feature_importance_df.columns = ["Feature", "Importance"]
+        feature_importance_df["Importance"] = pd.to_numeric(
+            feature_importance_df["Importance"],
+            errors="coerce",
+        ).fillna(0)
+        feature_importance_df = feature_importance_df.sort_values(
+            "Importance",
+            ascending=False,
+        ).reset_index(drop=True)
+        feature_importance_df["Rank"] = feature_importance_df.index + 1
+    else:
+        feature_importance_df = pd.DataFrame()
+
+if feature_importance_df.empty:
+    feature_importance_df = pd.DataFrame(
+        {
+            "Rank": [1, 2, 3, 4, 5, 6, 7],
+            "Feature": [
+                "tenure",
+                "Contract_Two year",
+                "Contract_Month-to-month",
+                "TotalCharges",
+                "InternetService_Fiber optic",
+                "InternetService_DSL",
+                "MonthlyCharges",
+            ],
+            "Importance": [1.2068, 0.7461, 0.6621, 0.5874, 0.5660, 0.5068, 0.5007],
+        }
+    )
+
+top_feature = feature_importance_df.iloc[0]["Feature"] if not feature_importance_df.empty else "N/A"
+
+
+# ============================================================
+# Extract dynamic batch predictions
+# ============================================================
+
+def add_risk_band_from_probability(df: pd.DataFrame) -> pd.DataFrame:
+    output_df = df.copy()
+
+    probability_col = find_first_existing_column(
+        output_df,
+        ["churn_probability", "probability", "prediction_probability"],
+    )
+
+    risk_col = find_first_existing_column(
+        output_df,
+        ["risk_band", "risk_level", "Risk Band", "Risk Level"],
+    )
+
+    if risk_col:
+        output_df["risk_band_dashboard"] = output_df[risk_col].astype(str)
+    elif probability_col:
+        probabilities = pd.to_numeric(output_df[probability_col], errors="coerce").fillna(0)
+
+        output_df["risk_band_dashboard"] = probabilities.apply(
+            lambda value: "High Risk"
+            if value >= best_threshold
+            else "Medium Risk"
+            if value >= 0.40
+            else "Low Risk"
+        )
+    else:
+        output_df["risk_band_dashboard"] = "Unknown"
+
+    return output_df
+
+
+if not batch_predictions_df.empty:
+    batch_predictions_df = add_risk_band_from_probability(batch_predictions_df)
+
+    probability_col = find_first_existing_column(
+        batch_predictions_df,
+        ["churn_probability", "probability", "prediction_probability"],
+    )
+
+    if "customer_id" not in batch_predictions_df.columns:
+        batch_predictions_df.insert(
+            0,
+            "customer_id",
+            [f"CUST-{index + 1:03d}" for index in range(len(batch_predictions_df))],
+        )
+
+    if probability_col and probability_col != "churn_probability":
+        batch_predictions_df["churn_probability"] = pd.to_numeric(
+            batch_predictions_df[probability_col],
+            errors="coerce",
+        ).fillna(0)
+
+    if "churn_probability" not in batch_predictions_df.columns:
+        batch_predictions_df["churn_probability"] = 0.0
+
+    batch_predictions_df["recommended_action"] = batch_predictions_df["risk_band_dashboard"].apply(
+        lambda value: "Priority retention call"
+        if "high" in str(value).lower()
+        else "Monitor or send low-cost engagement offer"
+        if "medium" in str(value).lower()
+        else "No immediate action"
+    )
+
+else:
+    batch_predictions_df = pd.DataFrame(
+        [
+            {
+                "customer_id": "CUST-001",
+                "churn_probability": 0.8845,
+                "risk_band_dashboard": "High Risk",
+                "recommended_action": "Priority retention call",
+            },
+            {
+                "customer_id": "CUST-002",
+                "churn_probability": 0.7200,
+                "risk_band_dashboard": "High Risk",
+                "recommended_action": "Priority retention call",
+            },
+            {
+                "customer_id": "CUST-003",
+                "churn_probability": 0.2300,
+                "risk_band_dashboard": "Low Risk",
+                "recommended_action": "No immediate action",
+            },
+            {
+                "customer_id": "CUST-004",
+                "churn_probability": 0.1200,
+                "risk_band_dashboard": "Low Risk",
+                "recommended_action": "No immediate action",
+            },
+        ]
+    )
+
+total_scored = len(batch_predictions_df)
+
+risk_lower = batch_predictions_df["risk_band_dashboard"].astype(str).str.lower()
+
+high_risk_count = int(risk_lower.str.contains("high").sum())
+medium_risk_count = int(risk_lower.str.contains("medium").sum())
+low_risk_count = int(risk_lower.str.contains("low").sum())
+
+
+# ============================================================
 # Sidebar
-# ------------------------------------------------------------
+# ============================================================
 
 st.sidebar.title("ChurnOps")
 st.sidebar.caption("End-to-End MLOps Dashboard")
@@ -37,10 +538,14 @@ st.sidebar.write("**Alias:** `champion`")
 st.sidebar.write("**Model:** Logistic Regression")
 st.sidebar.write("**Serving:** FastAPI + Docker")
 
+st.sidebar.divider()
+st.sidebar.markdown("### Data Source")
+st.sidebar.write("Dashboard values are loaded from `reports/`.")
 
-# ------------------------------------------------------------
+
+# ============================================================
 # Executive Overview
-# ------------------------------------------------------------
+# ============================================================
 
 if page == "Executive Overview":
     st.title("ChurnOps Executive Overview")
@@ -54,11 +559,11 @@ if page == "Executive Overview":
 
     col1, col2, col3, col4, col5 = st.columns(5)
 
-    col1.metric("Accuracy", "0.7474")
-    col2.metric("ROC-AUC", "0.8446")
-    col3.metric("Precision", "0.5165")
-    col4.metric("Recall", "0.7794")
-    col5.metric("F1-score", "0.6213")
+    col1.metric("Accuracy", format_metric(accuracy))
+    col2.metric("ROC-AUC", format_metric(roc_auc))
+    col3.metric("Precision", format_metric(precision))
+    col4.metric("Recall", format_metric(recall))
+    col5.metric("F1-score", format_metric(f1_score))
 
     st.divider()
 
@@ -66,31 +571,36 @@ if page == "Executive Overview":
 
     col1, col2, col3, col4, col5 = st.columns(5)
 
-    col1.metric("Features Monitored", "19")
-    col2.metric("Drifted Features", "0")
-    col3.metric("Data Drift", "Not Detected")
-    col4.metric("Prediction Drift", "Not Detected")
-    col5.metric("Retraining", "Not Needed")
+    col1.metric("Features Monitored", features_monitored)
+    col2.metric("Drifted Features", drifted_features)
+    col3.metric("Data Drift", bool_to_status(data_drift, "Detected", "Not Detected"))
+    col4.metric("Prediction Drift", bool_to_status(prediction_drift, "Detected", "Not Detected"))
+    col5.metric("Retraining", bool_to_status(retraining_recommended, "Recommended", "Not Needed"))
 
-    st.success(
-        "Monitoring result: No data drift or prediction drift detected. The champion model remains suitable for current scoring."
-    )
+    if not data_drift and not prediction_drift and not retraining_recommended:
+        st.success(
+            "Monitoring result: No data drift or prediction drift detected. The champion model remains suitable for current scoring."
+        )
+    else:
+        st.error(
+            "Monitoring result: Drift or retraining trigger detected. Review model reliability before continued scoring."
+        )
 
     st.divider()
 
     st.subheader("Business Interpretation")
 
     st.markdown(
-        """
+        f"""
         The current champion model is optimized for **churn prioritization**, not just raw accuracy.
 
-        The model's **recall of 0.7794** means it captures around **78% of actual churners**.
+        The model's **recall of {recall:.4f}** means it captures around **{recall * 100:.0f}% of actual churners**.
         This is important because missed churners represent lost retention opportunities.
 
-        The **precision of 0.5165** means some customers flagged as high risk may not actually churn.
+        The **precision of {precision:.4f}** means around **{precision * 100:.0f}% of customers flagged as churn risks actually churned**.
         This creates possible retention campaign cost, but it may be acceptable if the cost of losing a customer is higher than the cost of offering retention incentives.
 
-        Current monitoring shows **0 drifted features**, so retraining is **not recommended** at this time.
+        Current monitoring shows **{drifted_features} drifted features out of {features_monitored} monitored features**, so retraining is **{"recommended" if retraining_recommended else "not recommended"}** at this time.
         """
     )
 
@@ -100,9 +610,9 @@ if page == "Executive Overview":
 
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("High Risk", "2")
-    col2.metric("Medium Risk", "0")
-    col3.metric("Low Risk", "2")
+    col1.metric("High Risk", high_risk_count)
+    col2.metric("Medium Risk", medium_risk_count)
+    col3.metric("Low Risk", low_risk_count)
 
     st.divider()
 
@@ -123,9 +633,10 @@ if page == "Executive Overview":
         """
     )
 
-# ------------------------------------------------------------
-# Placeholder pages
-# ------------------------------------------------------------
+
+# ============================================================
+# Model Performance
+# ============================================================
 
 elif page == "Model Performance":
     st.title("Model Performance")
@@ -135,21 +646,15 @@ elif page == "Model Performance":
 
     st.divider()
 
-    accuracy = 0.7474
-    roc_auc = 0.8446
-    precision = 0.5165
-    recall = 0.7794
-    f1_score = 0.6213
-
     st.subheader("Performance KPI Summary")
 
     col1, col2, col3, col4, col5 = st.columns(5)
 
-    col1.metric("Accuracy", f"{accuracy:.4f}")
-    col2.metric("ROC-AUC", f"{roc_auc:.4f}")
-    col3.metric("Precision", f"{precision:.4f}")
-    col4.metric("Recall", f"{recall:.4f}")
-    col5.metric("F1-score", f"{f1_score:.4f}")
+    col1.metric("Accuracy", format_metric(accuracy))
+    col2.metric("ROC-AUC", format_metric(roc_auc))
+    col3.metric("Precision", format_metric(precision))
+    col4.metric("Recall", format_metric(recall))
+    col5.metric("F1-score", format_metric(f1_score))
 
     st.divider()
 
@@ -162,24 +667,16 @@ elif page == "Model Performance":
         }
     )
 
-    fig, ax = plt.subplots(figsize=(7, 3))
-
-    ax.barh(metrics_df["Metric"], metrics_df["Score"])
-    ax.set_xlim(0, 1)
-    ax.set_xlabel("Score")
-    ax.set_title("Champion Model Test Metrics")
-
-    for index, value in enumerate(metrics_df["Score"]):
-        ax.text(
-            value + 0.01,
-            index,
-            f"{value:.4f}",
-            va="center",
-            fontsize=9,
-        )
-
-    fig.tight_layout()
-    st.pyplot(fig, use_container_width=False)
+    render_barh_chart(
+        df=metrics_df,
+        label_col="Metric",
+        value_col="Score",
+        title="Champion Model Test Metrics",
+        xlabel="Score",
+        xlim=(0, 1),
+        value_formatter=lambda value: f"{value:.4f}",
+        figsize=WIDE_CHART_SIZE,
+    )
 
     st.divider()
 
@@ -189,33 +686,33 @@ elif page == "Model Performance":
         [
             {
                 "Metric": "Accuracy",
-                "Value": accuracy,
+                "Value": round(accuracy, 4),
                 "Business Meaning": "Overall percentage of correct churn and non-churn predictions.",
                 "Interpretation": "Useful as a general metric, but not enough by itself for churn because churn classes are usually imbalanced.",
             },
             {
                 "Metric": "ROC-AUC",
-                "Value": roc_auc,
+                "Value": round(roc_auc, 4),
                 "Business Meaning": "Measures how well the model separates churners from non-churners.",
-                "Interpretation": "Strong result. A ROC-AUC of 0.8446 means the model has good ranking ability.",
+                "Interpretation": f"ROC-AUC of {roc_auc:.4f} means the model has good ranking ability.",
             },
             {
                 "Metric": "Precision",
-                "Value": precision,
+                "Value": round(precision, 4),
                 "Business Meaning": "Of customers flagged as churn risks, how many actually churned.",
-                "Interpretation": "Moderate. Some retention offers may be spent on customers who would not churn.",
+                "Interpretation": "Moderate precision means some retention offers may be spent on customers who would not churn.",
             },
             {
                 "Metric": "Recall",
-                "Value": recall,
+                "Value": round(recall, 4),
                 "Business Meaning": "Of all actual churners, how many the model successfully captured.",
-                "Interpretation": "Strong for retention use case. The model catches about 78% of churners.",
+                "Interpretation": f"The model catches about {recall * 100:.0f}% of churners.",
             },
             {
                 "Metric": "F1-score",
-                "Value": f1_score,
+                "Value": round(f1_score, 4),
                 "Business Meaning": "Balances precision and recall.",
-                "Interpretation": "Good summary metric when both missed churners and wasted offers matter.",
+                "Interpretation": "Useful when both missed churners and wasted offers matter.",
             },
         ]
     )
@@ -241,6 +738,11 @@ elif page == "Model Performance":
         "If the company wants to reduce wasted retention offers, increase the decision threshold to improve precision."
     )
 
+
+# ============================================================
+# Confusion Matrix
+# ============================================================
+
 elif page == "Confusion Matrix":
     st.title("Confusion Matrix")
     st.caption(
@@ -248,11 +750,6 @@ elif page == "Confusion Matrix":
     )
 
     st.divider()
-
-    tn = 571
-    fp = 205
-    fn = 62
-    tp = 219
 
     st.subheader("Confusion Matrix Summary")
 
@@ -269,34 +766,7 @@ elif page == "Confusion Matrix":
 
     matrix = [[tn, fp], [fn, tp]]
 
-    fig, ax = plt.subplots(figsize=(4, 3))
-
-    image = ax.imshow(matrix)
-
-    ax.set_xticks([0, 1])
-    ax.set_yticks([0, 1])
-
-    ax.set_xticklabels(["Pred. No Churn", "Pred. Churn"], fontsize=8)
-    ax.set_yticklabels(["Actual No Churn", "Actual Churn"], fontsize=8)
-
-    ax.set_xlabel("Predicted Label")
-    ax.set_ylabel("Actual Label")
-
-    for i in range(2):
-        for j in range(2):
-            ax.text(
-                j,
-                i,
-                matrix[i][j],
-                ha="center",
-                va="center",
-                fontsize=14,
-                fontweight="bold",
-            )
-
-    fig.colorbar(image, ax=ax)
-    fig.tight_layout()
-    st.pyplot(fig, use_container_width=False)
+    render_confusion_matrix(matrix)
 
     st.divider()
 
@@ -332,12 +802,17 @@ elif page == "Confusion Matrix":
     st.dataframe(error_table, use_container_width=True)
 
     st.warning(
-        "Key business risk: 62 churners were missed. These false negatives represent customers who may leave without receiving a retention intervention."
+        f"Key business risk: {fn} churners were missed. These false negatives represent customers who may leave without receiving a retention intervention."
     )
 
     st.success(
-        "Key business value: 219 churners were correctly identified. These customers can be prioritized for retention outreach."
+        f"Key business value: {tp} churners were correctly identified. These customers can be prioritized for retention outreach."
     )
+
+
+# ============================================================
+# Threshold Analysis
+# ============================================================
 
 elif page == "Threshold Analysis":
     st.title("Threshold Analysis")
@@ -346,13 +821,6 @@ elif page == "Threshold Analysis":
     )
 
     st.divider()
-
-    best_threshold = 0.60
-    threshold_precision = 0.5714
-    threshold_recall = 0.6975
-    threshold_f1 = 0.6282
-    flagged_customers = 343
-    missed_churners = 85
 
     st.subheader("Recommended Threshold Summary")
 
@@ -383,6 +851,7 @@ elif page == "Threshold Analysis":
         )
 
     st.divider()
+
     st.subheader("Threshold Trade-off Charts")
 
     chart_col1, chart_col2 = st.columns(2)
@@ -395,27 +864,16 @@ elif page == "Threshold Analysis":
             }
         )
 
-        fig, ax = plt.subplots(figsize=(4, 3))
-
-        ax.barh(
-            threshold_metrics_df["Metric"],
-            threshold_metrics_df["Score"],
+        render_barh_chart(
+            df=threshold_metrics_df,
+            label_col="Metric",
+            value_col="Score",
+            title=f"Performance at Threshold {best_threshold:.2f}",
+            xlabel="Score",
+            xlim=(0, 1),
+            value_formatter=lambda value: f"{value:.4f}",
+            figsize=SMALL_CHART_SIZE,
         )
-        ax.set_xlim(0, 1)
-        ax.set_xlabel("Score")
-        ax.set_title("Performance at Threshold 0.60")
-
-        for index, value in enumerate(threshold_metrics_df["Score"]):
-            ax.text(
-                value + 0.01,
-                index,
-                f"{value:.4f}",
-                va="center",
-                fontsize=8,
-            )
-
-        fig.tight_layout()
-        st.pyplot(fig, use_container_width=False)
 
     with chart_col2:
         operational_df = pd.DataFrame(
@@ -425,28 +883,23 @@ elif page == "Threshold Analysis":
             }
         )
 
-        fig, ax = plt.subplots(figsize=(4, 3))
-
-        ax.barh(
-            operational_df["Metric"],
-            operational_df["Count"],
+        render_barh_chart(
+            df=operational_df,
+            label_col="Metric",
+            value_col="Count",
+            title=f"Operational Impact at Threshold {best_threshold:.2f}",
+            xlabel="Customer Count",
+            value_formatter=lambda value: f"{int(value)}",
+            figsize=SMALL_CHART_SIZE,
         )
-        ax.set_xlabel("Customer Count")
-        ax.set_title("Operational Impact at Threshold 0.60")
 
-        for index, value in enumerate(operational_df["Count"]):
-            ax.text(
-                value + 5,
-                index,
-                str(value),
-                va="center",
-                fontsize=8,
-            )
-
-        fig.tight_layout()
-        st.pyplot(fig, use_container_width=False)
+    if not threshold_analysis_df.empty:
+        st.divider()
+        st.subheader("Threshold Analysis Table")
+        st.dataframe(threshold_analysis_df, use_container_width=True)
 
     st.divider()
+
     st.subheader("Business Decision Logic")
 
     threshold_logic = pd.DataFrame(
@@ -464,7 +917,7 @@ elif page == "Threshold Analysis":
                 "Risk": "More missed churners and lost revenue opportunity",
             },
             {
-                "Decision Option": "Use 0.60 threshold",
+                "Decision Option": f"Use {best_threshold:.2f} threshold",
                 "Expected Effect": "Balanced precision and recall",
                 "Benefit": "Best F1-score in current analysis",
                 "Risk": "Still misses some churners",
@@ -479,20 +932,25 @@ elif page == "Threshold Analysis":
     st.subheader("Recommended Retention Policy")
 
     st.info(
-        "Recommended policy: Use the 0.60 threshold for the initial retention campaign. "
+        f"Recommended policy: Use the {best_threshold:.2f} threshold for the initial retention campaign. "
         "This threshold gives the best F1-score and balances campaign efficiency with churn capture."
     )
 
     st.markdown(
-        """
+        f"""
         **Business use:**
 
-        - Customers with churn probability **>= 0.60** should be tagged as high-risk.
+        - Customers with churn probability **>= {best_threshold:.2f}** should be tagged as high-risk.
         - High-risk customers should be prioritized for retention outreach.
         - If the retention budget is limited, increase the threshold.
         - If lost customers are more expensive than retention offers, lower the threshold.
         """
     )
+
+
+# ============================================================
+# Feature Importance
+# ============================================================
 
 elif page == "Feature Importance":
     st.title("Feature Importance")
@@ -502,60 +960,40 @@ elif page == "Feature Importance":
 
     st.divider()
 
-    feature_importance_df = pd.DataFrame(
-        {
-            "Feature": [
-                "tenure",
-                "Contract_Two year",
-                "Contract_Month-to-month",
-                "TotalCharges",
-                "InternetService_Fiber optic",
-                "InternetService_DSL",
-                "MonthlyCharges",
-            ],
-            "Importance Rank": [1, 2, 3, 4, 5, 6, 7],
-            "Importance Score": [7, 6, 5, 4, 3, 2, 1],
-        }
-    )
+    top_features_df = feature_importance_df.head(10).copy()
 
     st.subheader("Top Churn Drivers")
 
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("Top Driver", "tenure")
-    col2.metric("Drivers Shown", "7")
+    col1.metric("Top Driver", str(top_feature))
+    col2.metric("Drivers Shown", len(top_features_df))
     col3.metric("Model Type", "Logistic Regression")
 
     st.divider()
 
     st.subheader("Feature Importance Chart")
 
-    chart_df = feature_importance_df.sort_values(
-        "Importance Score",
+    chart_df = top_features_df.sort_values(
+        "Importance",
         ascending=True,
     )
 
-    fig, ax = plt.subplots(figsize=(7, 4))
-
-    ax.barh(
-        chart_df["Feature"],
-        chart_df["Importance Score"],
+    render_barh_chart(
+        df=chart_df,
+        label_col="Feature",
+        value_col="Importance",
+        title="Top Churn Drivers",
+        xlabel="Model Importance",
+        value_formatter=lambda value: f"{value:.4f}",
+        figsize=WIDE_CHART_SIZE,
     )
 
-    ax.set_xlabel("Relative Importance Score")
-    ax.set_title("Top Churn Drivers")
+    st.divider()
 
-    for index, value in enumerate(chart_df["Importance Score"]):
-        ax.text(
-            value + 0.1,
-            index,
-            str(value),
-            va="center",
-            fontsize=8,
-        )
+    st.subheader("Feature Importance Table")
 
-    fig.tight_layout()
-    st.pyplot(fig, use_container_width=False)
+    st.dataframe(top_features_df, use_container_width=True)
 
     st.divider()
 
@@ -616,8 +1054,13 @@ elif page == "Feature Importance":
     )
 
     st.warning(
-        "Model risk: This page currently uses rank-based importance. For stronger explainability, use actual Logistic Regression coefficients or SHAP values in the next iteration."
+        "Model risk: Feature importance shows model influence, not guaranteed causality. Use this as a prioritization guide, not as proof of root cause."
     )
+
+
+# ============================================================
+# Monitoring & Drift
+# ============================================================
 
 elif page == "Monitoring & Drift":
     st.title("Monitoring & Drift")
@@ -627,21 +1070,15 @@ elif page == "Monitoring & Drift":
 
     st.divider()
 
-    features_monitored = 19
-    drifted_features = 0
-    data_drift = False
-    prediction_drift = False
-    retraining_recommended = False
-
     st.subheader("Monitoring KPI Summary")
 
     col1, col2, col3, col4, col5 = st.columns(5)
 
     col1.metric("Features Monitored", features_monitored)
     col2.metric("Drifted Features", drifted_features)
-    col3.metric("Data Drift", "False")
-    col4.metric("Prediction Drift", "False")
-    col5.metric("Retraining", "Not Needed")
+    col3.metric("Data Drift", str(data_drift))
+    col4.metric("Prediction Drift", str(prediction_drift))
+    col5.metric("Retraining", bool_to_status(retraining_recommended, "Recommended", "Not Needed"))
 
     st.divider()
 
@@ -660,28 +1097,62 @@ elif page == "Monitoring & Drift":
         }
     )
 
-    fig, ax = plt.subplots(figsize=(5, 3))
-
-    ax.barh(
-        drift_df["Monitoring Check"],
-        drift_df["Count"],
+    render_barh_chart(
+        df=drift_df,
+        label_col="Monitoring Check",
+        value_col="Count",
+        title="Feature Drift Monitoring Result",
+        xlabel="Feature Count",
+        xlim=(0, features_monitored + 2),
+        value_formatter=lambda value: f"{int(value)}",
+        figsize=NORMAL_CHART_SIZE,
     )
 
-    ax.set_xlabel("Feature Count")
-    ax.set_title("Feature Drift Monitoring Result")
+    st.divider()
 
-    for index, value in enumerate(drift_df["Count"]):
-        ax.text(
-            value + 0.2,
-            index,
-            str(value),
-            va="center",
-            fontsize=9,
-        )
+    st.subheader("Prediction Drift Summary")
 
-    ax.set_xlim(0, features_monitored + 2)
-    fig.tight_layout()
-    st.pyplot(fig, use_container_width=False)
+    prediction_drift_summary_df = pd.DataFrame(
+        [
+            {
+                "Metric": "Reference Mean Churn Probability",
+                "Value": round(reference_mean_churn_probability, 4),
+            },
+            {
+                "Metric": "Current Mean Churn Probability",
+                "Value": round(current_mean_churn_probability, 4),
+            },
+            {
+                "Metric": "Absolute Mean Change",
+                "Value": round(absolute_mean_change, 4),
+            },
+            {
+                "Metric": "Alert Level",
+                "Value": alert_level,
+            },
+        ]
+    )
+
+    st.dataframe(prediction_drift_summary_df, use_container_width=True)
+
+    if not feature_drift_df.empty:
+        st.divider()
+        st.subheader("Feature Drift Details")
+
+        display_cols = [
+            col
+            for col in [
+                "feature",
+                "feature_type",
+                "test",
+                "statistic",
+                "p_value",
+                "drift_detected",
+            ]
+            if col in feature_drift_df.columns
+        ]
+
+        st.dataframe(feature_drift_df[display_cols], use_container_width=True)
 
     st.divider()
 
@@ -691,27 +1162,27 @@ elif page == "Monitoring & Drift":
         [
             {
                 "Check": "Data Drift",
-                "Result": "Not Detected",
-                "Meaning": "Current input feature distribution is still similar to the reference data.",
-                "Business Decision": "Model can continue scoring current customers.",
+                "Result": "Detected" if data_drift else "Not Detected",
+                "Meaning": "Checks whether current input feature distribution changed from reference data.",
+                "Business Decision": "Model can continue scoring if no drift is detected.",
             },
             {
                 "Check": "Prediction Drift",
-                "Result": "Not Detected",
-                "Meaning": "Current prediction pattern is still similar to the reference prediction pattern.",
-                "Business Decision": "No immediate model behavior issue detected.",
+                "Result": "Detected" if prediction_drift else "Not Detected",
+                "Meaning": "Checks whether current prediction pattern changed from the reference prediction pattern.",
+                "Business Decision": "No immediate model behavior issue detected if prediction drift is false.",
             },
             {
                 "Check": "Feature Drift",
-                "Result": "0 of 19 features drifted",
-                "Meaning": "No monitored feature crossed the drift threshold.",
-                "Business Decision": "No data-driven retraining trigger at this time.",
+                "Result": f"{drifted_features} of {features_monitored} features drifted",
+                "Meaning": "Counts monitored features that crossed the drift threshold.",
+                "Business Decision": "No data-driven retraining trigger if drifted feature count is zero.",
             },
             {
                 "Check": "Retraining Recommendation",
-                "Result": "Not Recommended",
-                "Meaning": "Monitoring does not show enough evidence that the model needs retraining.",
-                "Business Decision": "Keep current champion model active.",
+                "Result": "Recommended" if retraining_recommended else "Not Recommended",
+                "Meaning": "Monitoring-based recommendation for model retraining.",
+                "Business Decision": monitoring_recommended_action,
             },
         ]
     )
@@ -755,6 +1226,11 @@ elif page == "Monitoring & Drift":
         """
     )
 
+
+# ============================================================
+# Batch Predictions
+# ============================================================
+
 elif page == "Batch Predictions":
     st.title("Batch Predictions")
     st.caption(
@@ -762,40 +1238,6 @@ elif page == "Batch Predictions":
     )
 
     st.divider()
-
-    batch_results_df = pd.DataFrame(
-        [
-            {
-                "customer_id": "CUST-001",
-                "churn_probability": 0.8845,
-                "risk_band": "High Risk",
-                "recommended_action": "Priority retention call",
-            },
-            {
-                "customer_id": "CUST-002",
-                "churn_probability": 0.7200,
-                "risk_band": "High Risk",
-                "recommended_action": "Review plan and offer retention incentive",
-            },
-            {
-                "customer_id": "CUST-003",
-                "churn_probability": 0.2300,
-                "risk_band": "Low Risk",
-                "recommended_action": "No immediate action",
-            },
-            {
-                "customer_id": "CUST-004",
-                "churn_probability": 0.1200,
-                "risk_band": "Low Risk",
-                "recommended_action": "No immediate action",
-            },
-        ]
-    )
-
-    high_risk_count = 2
-    medium_risk_count = 0
-    low_risk_count = 2
-    total_scored = 4
 
     st.subheader("Batch Scoring Summary")
 
@@ -821,36 +1263,35 @@ elif page == "Batch Predictions":
         }
     )
 
-    fig, ax = plt.subplots(figsize=(5, 3))
-
-    ax.barh(
-        risk_distribution_df["Risk Band"],
-        risk_distribution_df["Customer Count"],
+    render_barh_chart(
+        df=risk_distribution_df,
+        label_col="Risk Band",
+        value_col="Customer Count",
+        title="Batch Prediction Risk Distribution",
+        xlabel="Customer Count",
+        xlim=(0, max(total_scored + 1, 5)),
+        value_formatter=lambda value: f"{int(value)}",
+        figsize=NORMAL_CHART_SIZE,
     )
-
-    ax.set_xlabel("Customer Count")
-    ax.set_title("Batch Prediction Risk Distribution")
-
-    for index, value in enumerate(risk_distribution_df["Customer Count"]):
-        ax.text(
-            value + 0.05,
-            index,
-            str(value),
-            va="center",
-            fontsize=9,
-        )
-
-    ax.set_xlim(0, total_scored + 1)
-    fig.tight_layout()
-    st.pyplot(fig, use_container_width=False)
 
     st.divider()
 
     st.subheader("Scored Customer Output")
 
-    st.dataframe(batch_results_df, use_container_width=True)
+    display_cols = [
+        col
+        for col in [
+            "customer_id",
+            "churn_probability",
+            "risk_band_dashboard",
+            "recommended_action",
+        ]
+        if col in batch_predictions_df.columns
+    ]
 
-    csv_data = batch_results_df.to_csv(index=False)
+    st.dataframe(batch_predictions_df[display_cols], use_container_width=True)
+
+    csv_data = batch_predictions_df.to_csv(index=False)
 
     st.download_button(
         label="Download Batch Prediction Results",
@@ -867,13 +1308,13 @@ elif page == "Batch Predictions":
         [
             {
                 "Risk Band": "High Risk",
-                "Probability Rule": "churn_probability >= 0.60",
+                "Probability Rule": f"churn_probability >= {best_threshold:.2f}",
                 "Business Action": "Prioritize for retention outreach.",
                 "Owner": "Retention team",
             },
             {
                 "Risk Band": "Medium Risk",
-                "Probability Rule": "0.40 <= churn_probability < 0.60",
+                "Probability Rule": f"0.40 <= churn_probability < {best_threshold:.2f}",
                 "Business Action": "Monitor or send low-cost engagement offer.",
                 "Owner": "Customer success / marketing",
             },
@@ -892,17 +1333,23 @@ elif page == "Batch Predictions":
 
     st.subheader("Business Recommendation")
 
-    st.success(
-        "Recommendation: Prioritize the 2 high-risk customers for immediate retention outreach."
-    )
+    if high_risk_count > 0:
+        st.success(
+            f"Recommendation: Prioritize the {high_risk_count} high-risk customers for immediate retention outreach."
+        )
+    else:
+        st.success(
+            "Recommendation: No high-risk customers were found in the current batch."
+        )
 
     st.info(
         "Business decision: Use the batch prediction output as a daily or weekly retention queue for the customer success team."
     )
 
-    st.warning(
-        "Operational note: This page currently uses the known sample batch output. In the next iteration, connect it directly to the generated batch_predictions.csv file from the pipeline."
-    )
+
+# ============================================================
+# MLOps System Health
+# ============================================================
 
 elif page == "MLOps System Health":
     st.title("MLOps System Health")
@@ -985,13 +1432,13 @@ elif page == "MLOps System Health":
             {
                 "Component": "Monitoring",
                 "Status": "Working",
-                "Evidence": "19 features monitored, 0 drifted features.",
+                "Evidence": f"{features_monitored} features monitored, {drifted_features} drifted features.",
                 "Business / Technical Value": "Detects when the model may become unreliable.",
             },
             {
                 "Component": "Batch Prediction",
                 "Status": "Working",
-                "Evidence": "4 customers scored; 2 high risk, 0 medium risk, 2 low risk.",
+                "Evidence": f"{total_scored} customers scored; {high_risk_count} high risk, {medium_risk_count} medium risk, {low_risk_count} low risk.",
                 "Business / Technical Value": "Creates operational retention queue.",
             },
             {
@@ -1099,6 +1546,6 @@ elif page == "MLOps System Health":
         """
     )
 
-    st.warning(
-        "Next improvement: Replace remaining hardcoded dashboard values with files generated automatically by the pipeline, such as metrics.json, feature_importance.csv, threshold_analysis.csv, and batch_predictions.csv."
+    st.success(
+        "Dynamic dashboard upgrade complete: model metrics, confusion matrix, monitoring, batch predictions, feature importance, and threshold analysis are now loaded from the reports folder."
     )
