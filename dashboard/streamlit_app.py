@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import pandas as pd
 import streamlit as st
 
 st.set_page_config(
@@ -128,7 +129,117 @@ if page == "Executive Overview":
 
 elif page == "Model Performance":
     st.title("Model Performance")
-    st.info("Next phase: metric charts, ROC curve, precision-recall curve, and classification report.")
+    st.caption(
+        "Final test-set performance of the champion Logistic Regression churn model."
+    )
+
+    st.divider()
+
+    accuracy = 0.7474
+    roc_auc = 0.8446
+    precision = 0.5165
+    recall = 0.7794
+    f1_score = 0.6213
+
+    st.subheader("Performance KPI Summary")
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    col1.metric("Accuracy", f"{accuracy:.4f}")
+    col2.metric("ROC-AUC", f"{roc_auc:.4f}")
+    col3.metric("Precision", f"{precision:.4f}")
+    col4.metric("Recall", f"{recall:.4f}")
+    col5.metric("F1-score", f"{f1_score:.4f}")
+
+    st.divider()
+
+    st.subheader("Metric Comparison Chart")
+
+    metrics_df = pd.DataFrame(
+        {
+            "Metric": ["ROC-AUC", "Recall", "Accuracy", "F1-score", "Precision"],
+            "Score": [roc_auc, recall, accuracy, f1_score, precision],
+        }
+    )
+
+    fig, ax = plt.subplots(figsize=(7, 3))
+
+    ax.barh(metrics_df["Metric"], metrics_df["Score"])
+    ax.set_xlim(0, 1)
+    ax.set_xlabel("Score")
+    ax.set_title("Champion Model Test Metrics")
+
+    for index, value in enumerate(metrics_df["Score"]):
+        ax.text(
+            value + 0.01,
+            index,
+            f"{value:.4f}",
+            va="center",
+            fontsize=9,
+        )
+
+    fig.tight_layout()
+    st.pyplot(fig, use_container_width=False)
+
+    st.divider()
+
+    st.subheader("Business Meaning of Each Metric")
+
+    metric_meaning = pd.DataFrame(
+        [
+            {
+                "Metric": "Accuracy",
+                "Value": accuracy,
+                "Business Meaning": "Overall percentage of correct churn and non-churn predictions.",
+                "Interpretation": "Useful as a general metric, but not enough by itself for churn because churn classes are usually imbalanced.",
+            },
+            {
+                "Metric": "ROC-AUC",
+                "Value": roc_auc,
+                "Business Meaning": "Measures how well the model separates churners from non-churners.",
+                "Interpretation": "Strong result. A ROC-AUC of 0.8446 means the model has good ranking ability.",
+            },
+            {
+                "Metric": "Precision",
+                "Value": precision,
+                "Business Meaning": "Of customers flagged as churn risks, how many actually churned.",
+                "Interpretation": "Moderate. Some retention offers may be spent on customers who would not churn.",
+            },
+            {
+                "Metric": "Recall",
+                "Value": recall,
+                "Business Meaning": "Of all actual churners, how many the model successfully captured.",
+                "Interpretation": "Strong for retention use case. The model catches about 78% of churners.",
+            },
+            {
+                "Metric": "F1-score",
+                "Value": f1_score,
+                "Business Meaning": "Balances precision and recall.",
+                "Interpretation": "Good summary metric when both missed churners and wasted offers matter.",
+            },
+        ]
+    )
+
+    st.dataframe(metric_meaning, use_container_width=True)
+
+    st.divider()
+
+    st.subheader("Model Recommendation")
+
+    st.success(
+        "Recommendation: Use the Logistic Regression champion model for churn prioritization. "
+        "The model has strong ROC-AUC and recall, making it useful for identifying customers who need retention action."
+    )
+
+    st.warning(
+        "Main trade-off: Precision is moderate. This means the business may spend some retention budget on customers who would not actually churn. "
+        "Threshold tuning should be used to control this campaign cost."
+    )
+
+    st.info(
+        "Business decision: If the company wants to reduce missed churners, prioritize recall. "
+        "If the company wants to reduce wasted retention offers, increase the decision threshold to improve precision."
+    )
 
 elif page == "Confusion Matrix":
     st.title("Confusion Matrix")
