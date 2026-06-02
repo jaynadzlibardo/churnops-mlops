@@ -28,6 +28,7 @@ models/*.pkl
 models/*.joblib
 mlruns/
 mlartifacts/
+mlflow.db
 
 # Reports
 reports/*.html
