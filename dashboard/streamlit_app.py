@@ -341,7 +341,95 @@ elif page == "Confusion Matrix":
 
 elif page == "Threshold Analysis":
     st.title("Threshold Analysis")
-    st.info("Later phase: threshold slider, precision-recall-F1 trade-off charts, and retention policy analysis.")
+    st.caption(
+        "Decision threshold analysis for converting churn probabilities into retention actions."
+    )
+
+    st.divider()
+
+    best_threshold = 0.60
+    threshold_precision = 0.5714
+    threshold_recall = 0.6975
+    threshold_f1 = 0.6282
+    flagged_customers = 343
+    missed_churners = 85
+
+    st.subheader("Recommended Threshold Summary")
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    col1.metric("Best Threshold", f"{best_threshold:.2f}")
+    col2.metric("Precision", f"{threshold_precision:.4f}")
+    col3.metric("Recall", f"{threshold_recall:.4f}")
+    col4.metric("F1-score", f"{threshold_f1:.4f}")
+    col5.metric("Flagged Customers", flagged_customers)
+
+    st.divider()
+
+    st.subheader("Retention Trade-off")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.warning(
+            f"At threshold {best_threshold:.2f}, the model misses {missed_churners} actual churners. "
+            "These customers may leave without receiving a retention intervention."
+        )
+
+    with col2:
+        st.success(
+            f"At threshold {best_threshold:.2f}, the model flags {flagged_customers} customers for retention action. "
+            "This gives the business a focused customer list for outreach."
+        )
+
+    st.divider()
+
+    st.subheader("Business Decision Logic")
+
+    threshold_logic = pd.DataFrame(
+        [
+            {
+                "Decision Option": "Lower threshold",
+                "Expected Effect": "More customers flagged",
+                "Benefit": "Catches more churners",
+                "Risk": "Higher retention campaign cost and more false positives",
+            },
+            {
+                "Decision Option": "Higher threshold",
+                "Expected Effect": "Fewer customers flagged",
+                "Benefit": "More efficient campaign spend",
+                "Risk": "More missed churners and lost revenue opportunity",
+            },
+            {
+                "Decision Option": "Use 0.60 threshold",
+                "Expected Effect": "Balanced precision and recall",
+                "Benefit": "Best F1-score in current analysis",
+                "Risk": "Still misses some churners",
+            },
+        ]
+    )
+
+    st.dataframe(threshold_logic, use_container_width=True)
+
+    st.divider()
+
+    st.subheader("Recommended Retention Policy")
+
+    st.info(
+        "Recommended policy: Use the 0.60 threshold for the initial retention campaign. "
+        "This threshold gives the best F1-score and balances campaign efficiency with churn capture."
+    )
+
+    st.markdown(
+        """
+        **Business use:**
+
+        - Customers with churn probability **>= 0.60** should be tagged as high-risk.
+        - High-risk customers should be prioritized for retention outreach.
+        - If the retention budget is limited, increase the threshold.
+        - If lost customers are more expensive than retention offers, lower the threshold.
+        """
+    )
 
 elif page == "Feature Importance":
     st.title("Feature Importance")
