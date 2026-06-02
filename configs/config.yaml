@@ -1,0 +1,28 @@
+project:
+  name: churnops-mlops
+  target: Churn
+  positive_class: Yes
+  negative_class: No
+
+paths:
+  raw_data: data/raw/telco_churn.csv
+  train_data: data/processed/train.csv
+  val_data: data/processed/val.csv
+  test_data: data/processed/test.csv
+  validation_report: reports/data_validation_report.json
+  metrics_report: reports/metrics_report.json
+  confusion_matrix: reports/confusion_matrix.png
+  model: models/churn_model.pkl
+  preprocessor: models/preprocessor.pkl
+  monitoring_report: reports/monitoring_report.html
+  monitoring_summary: reports/monitoring_summary.json
+
+split:
+  train_size: 0.70
+  val_size: 0.15
+  test_size: 0.15
+  random_state: 42
+
+metrics:
+  primary: roc_auc
+  business: recall
