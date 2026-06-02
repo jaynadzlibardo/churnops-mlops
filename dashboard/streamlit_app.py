@@ -383,7 +383,70 @@ elif page == "Threshold Analysis":
         )
 
     st.divider()
+    st.subheader("Threshold Trade-off Charts")
 
+    chart_col1, chart_col2 = st.columns(2)
+
+    with chart_col1:
+        threshold_metrics_df = pd.DataFrame(
+            {
+                "Metric": ["Precision", "Recall", "F1-score"],
+                "Score": [threshold_precision, threshold_recall, threshold_f1],
+            }
+        )
+
+        fig, ax = plt.subplots(figsize=(4, 3))
+
+        ax.barh(
+            threshold_metrics_df["Metric"],
+            threshold_metrics_df["Score"],
+        )
+        ax.set_xlim(0, 1)
+        ax.set_xlabel("Score")
+        ax.set_title("Performance at Threshold 0.60")
+
+        for index, value in enumerate(threshold_metrics_df["Score"]):
+            ax.text(
+                value + 0.01,
+                index,
+                f"{value:.4f}",
+                va="center",
+                fontsize=8,
+            )
+
+        fig.tight_layout()
+        st.pyplot(fig, use_container_width=False)
+
+    with chart_col2:
+        operational_df = pd.DataFrame(
+            {
+                "Metric": ["Flagged Customers", "Missed Churners"],
+                "Count": [flagged_customers, missed_churners],
+            }
+        )
+
+        fig, ax = plt.subplots(figsize=(4, 3))
+
+        ax.barh(
+            operational_df["Metric"],
+            operational_df["Count"],
+        )
+        ax.set_xlabel("Customer Count")
+        ax.set_title("Operational Impact at Threshold 0.60")
+
+        for index, value in enumerate(operational_df["Count"]):
+            ax.text(
+                value + 5,
+                index,
+                str(value),
+                va="center",
+                fontsize=8,
+            )
+
+        fig.tight_layout()
+        st.pyplot(fig, use_container_width=False)
+
+    st.divider()
     st.subheader("Business Decision Logic")
 
     threshold_logic = pd.DataFrame(
