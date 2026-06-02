@@ -496,7 +496,128 @@ elif page == "Threshold Analysis":
 
 elif page == "Feature Importance":
     st.title("Feature Importance")
-    st.info("Later phase: top churn drivers and business action mapping.")
+    st.caption(
+        "Top churn drivers from the champion Logistic Regression model."
+    )
+
+    st.divider()
+
+    feature_importance_df = pd.DataFrame(
+        {
+            "Feature": [
+                "tenure",
+                "Contract_Two year",
+                "Contract_Month-to-month",
+                "TotalCharges",
+                "InternetService_Fiber optic",
+                "InternetService_DSL",
+                "MonthlyCharges",
+            ],
+            "Importance Rank": [1, 2, 3, 4, 5, 6, 7],
+            "Importance Score": [7, 6, 5, 4, 3, 2, 1],
+        }
+    )
+
+    st.subheader("Top Churn Drivers")
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("Top Driver", "tenure")
+    col2.metric("Drivers Shown", "7")
+    col3.metric("Model Type", "Logistic Regression")
+
+    st.divider()
+
+    st.subheader("Feature Importance Chart")
+
+    chart_df = feature_importance_df.sort_values(
+        "Importance Score",
+        ascending=True,
+    )
+
+    fig, ax = plt.subplots(figsize=(7, 4))
+
+    ax.barh(
+        chart_df["Feature"],
+        chart_df["Importance Score"],
+    )
+
+    ax.set_xlabel("Relative Importance Score")
+    ax.set_title("Top Churn Drivers")
+
+    for index, value in enumerate(chart_df["Importance Score"]):
+        ax.text(
+            value + 0.1,
+            index,
+            str(value),
+            va="center",
+            fontsize=8,
+        )
+
+    fig.tight_layout()
+    st.pyplot(fig, use_container_width=False)
+
+    st.divider()
+
+    st.subheader("Business Interpretation")
+
+    business_actions = pd.DataFrame(
+        [
+            {
+                "Feature": "tenure",
+                "Business Meaning": "Customer lifetime is a major churn signal. Short-tenure customers are usually less loyal and more likely to leave.",
+                "Recommended Action": "Improve onboarding, early-life customer support, and first 90-day engagement campaigns.",
+            },
+            {
+                "Feature": "Contract_Two year",
+                "Business Meaning": "Longer contracts usually reduce churn risk because customers have stronger commitment.",
+                "Recommended Action": "Promote longer-term contracts to stable customers with targeted upgrade offers.",
+            },
+            {
+                "Feature": "Contract_Month-to-month",
+                "Business Meaning": "Month-to-month customers can leave more easily, increasing churn risk.",
+                "Recommended Action": "Target month-to-month customers with loyalty discounts or contract conversion offers.",
+            },
+            {
+                "Feature": "TotalCharges",
+                "Business Meaning": "Total charges are related to customer lifetime value and account maturity.",
+                "Recommended Action": "Prioritize high-value customers for proactive retention outreach.",
+            },
+            {
+                "Feature": "InternetService_Fiber optic",
+                "Business Meaning": "Fiber optic customers may represent a segment with higher price sensitivity or service expectations.",
+                "Recommended Action": "Investigate fiber customer complaints, pricing, speed issues, and service quality experience.",
+            },
+            {
+                "Feature": "InternetService_DSL",
+                "Business Meaning": "DSL customers may behave differently from fiber customers in churn patterns.",
+                "Recommended Action": "Compare churn rates by internet service type and tailor offers by segment.",
+            },
+            {
+                "Feature": "MonthlyCharges",
+                "Business Meaning": "Higher monthly bills may increase churn risk if customers perceive low value for money.",
+                "Recommended Action": "Review pricing, bundles, discounts, and value communication for high-bill customers.",
+            },
+        ]
+    )
+
+    st.dataframe(business_actions, use_container_width=True)
+
+    st.divider()
+
+    st.subheader("Retention Strategy Recommendation")
+
+    st.success(
+        "Recommendation: Focus retention efforts on customers with short tenure, month-to-month contracts, high monthly charges, and risky internet service segments."
+    )
+
+    st.info(
+        "Business decision: Use feature importance to design targeted campaigns instead of giving the same retention offer to every customer."
+    )
+
+    st.warning(
+        "Model risk: This page currently uses rank-based importance. For stronger explainability, use actual Logistic Regression coefficients or SHAP values in the next iteration."
+    )
 
 elif page == "Monitoring & Drift":
     st.title("Monitoring & Drift")
