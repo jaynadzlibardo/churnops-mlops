@@ -621,7 +621,139 @@ elif page == "Feature Importance":
 
 elif page == "Monitoring & Drift":
     st.title("Monitoring & Drift")
-    st.info("Later phase: drift status cards, drift tables, and Evidently report integration.")
+    st.caption(
+        "Monitoring summary for data drift, prediction drift, and retraining decision."
+    )
+
+    st.divider()
+
+    features_monitored = 19
+    drifted_features = 0
+    data_drift = False
+    prediction_drift = False
+    retraining_recommended = False
+
+    st.subheader("Monitoring KPI Summary")
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    col1.metric("Features Monitored", features_monitored)
+    col2.metric("Drifted Features", drifted_features)
+    col3.metric("Data Drift", "False")
+    col4.metric("Prediction Drift", "False")
+    col5.metric("Retraining", "Not Needed")
+
+    st.divider()
+
+    st.subheader("Drift Health Chart")
+
+    drift_df = pd.DataFrame(
+        {
+            "Monitoring Check": [
+                "Stable Features",
+                "Drifted Features",
+            ],
+            "Count": [
+                features_monitored - drifted_features,
+                drifted_features,
+            ],
+        }
+    )
+
+    fig, ax = plt.subplots(figsize=(5, 3))
+
+    ax.barh(
+        drift_df["Monitoring Check"],
+        drift_df["Count"],
+    )
+
+    ax.set_xlabel("Feature Count")
+    ax.set_title("Feature Drift Monitoring Result")
+
+    for index, value in enumerate(drift_df["Count"]):
+        ax.text(
+            value + 0.2,
+            index,
+            str(value),
+            va="center",
+            fontsize=9,
+        )
+
+    ax.set_xlim(0, features_monitored + 2)
+    fig.tight_layout()
+    st.pyplot(fig, use_container_width=False)
+
+    st.divider()
+
+    st.subheader("Monitoring Decision Table")
+
+    monitoring_decisions = pd.DataFrame(
+        [
+            {
+                "Check": "Data Drift",
+                "Result": "Not Detected",
+                "Meaning": "Current input feature distribution is still similar to the reference data.",
+                "Business Decision": "Model can continue scoring current customers.",
+            },
+            {
+                "Check": "Prediction Drift",
+                "Result": "Not Detected",
+                "Meaning": "Current prediction pattern is still similar to the reference prediction pattern.",
+                "Business Decision": "No immediate model behavior issue detected.",
+            },
+            {
+                "Check": "Feature Drift",
+                "Result": "0 of 19 features drifted",
+                "Meaning": "No monitored feature crossed the drift threshold.",
+                "Business Decision": "No data-driven retraining trigger at this time.",
+            },
+            {
+                "Check": "Retraining Recommendation",
+                "Result": "Not Recommended",
+                "Meaning": "Monitoring does not show enough evidence that the model needs retraining.",
+                "Business Decision": "Keep current champion model active.",
+            },
+        ]
+    )
+
+    st.dataframe(monitoring_decisions, use_container_width=True)
+
+    st.divider()
+
+    st.subheader("Retraining Decision")
+
+    if not data_drift and not prediction_drift and not retraining_recommended:
+        st.success(
+            "Monitoring status: Healthy. No data drift, no prediction drift, and no retraining recommended."
+        )
+
+        st.info(
+            "Business decision: Keep the current MLflow champion model active for scoring. Continue periodic monitoring before triggering retraining."
+        )
+    else:
+        st.error(
+            "Monitoring status: Review needed. Drift or retraining trigger was detected."
+        )
+
+        st.warning(
+            "Business decision: Investigate drifted features, compare model performance on recent data, and consider retraining."
+        )
+
+    st.divider()
+
+    st.subheader("Operational Monitoring Policy")
+
+    st.markdown(
+        """
+        Recommended monitoring policy:
+
+        - Run monitoring after every new scoring batch.
+        - Trigger investigation if any important feature starts drifting.
+        - Trigger retraining review if prediction drift is detected.
+        - Compare new model vs champion model before promotion.
+        - Promote only if the new model improves business-relevant metrics such as recall, F1-score, or retention ROI.
+        """
+    )
 
 elif page == "Batch Predictions":
     st.title("Batch Predictions")
