@@ -906,4 +906,199 @@ elif page == "Batch Predictions":
 
 elif page == "MLOps System Health":
     st.title("MLOps System Health")
-    st.info("Later phase: model registry status, API status, Docker status, test status, and deployment checklist.")
+    st.caption(
+        "Production-readiness summary for the ChurnOps end-to-end MLOps pipeline."
+    )
+
+    st.divider()
+
+    st.subheader("System Health Summary")
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    col1.metric("GitHub Actions", "Passed")
+    col2.metric("Pytest", "8 passed")
+    col3.metric("Model Registry", "Champion")
+    col4.metric("API Health", "Loaded")
+    col5.metric("Docker", "Working")
+
+    st.divider()
+
+    st.subheader("MLOps Component Checklist")
+
+    system_health_df = pd.DataFrame(
+        [
+            {
+                "Component": "GitHub Repository",
+                "Status": "Complete",
+                "Evidence": "Repo pushed to GitHub.",
+                "Business / Technical Value": "Enables version control and portfolio review.",
+            },
+            {
+                "Component": "GitHub Actions",
+                "Status": "Passed",
+                "Evidence": "CI workflow completed successfully.",
+                "Business / Technical Value": "Automates quality checks before changes are accepted.",
+            },
+            {
+                "Component": "Pytest",
+                "Status": "8 passed",
+                "Evidence": "Local tests passed.",
+                "Business / Technical Value": "Reduces risk of broken pipeline logic.",
+            },
+            {
+                "Component": "Data Validation",
+                "Status": "Working",
+                "Evidence": "Validation pipeline checks input data quality.",
+                "Business / Technical Value": "Prevents bad data from entering training or scoring.",
+            },
+            {
+                "Component": "Preprocessing",
+                "Status": "Working",
+                "Evidence": "Train/validation/test split completed.",
+                "Business / Technical Value": "Creates reproducible model-ready datasets.",
+            },
+            {
+                "Component": "MLflow Training",
+                "Status": "Working",
+                "Evidence": "Experiments and metrics tracked.",
+                "Business / Technical Value": "Makes model selection auditable and repeatable.",
+            },
+            {
+                "Component": "Model Registry",
+                "Status": "Champion active",
+                "Evidence": "Registered model name: churnops_model, alias: champion.",
+                "Business / Technical Value": "Supports controlled model promotion and deployment.",
+            },
+            {
+                "Component": "FastAPI Service",
+                "Status": "Working",
+                "Evidence": "/health returns model_loaded = True; /predict returns probability.",
+                "Business / Technical Value": "Makes the model usable by applications or services.",
+            },
+            {
+                "Component": "Docker",
+                "Status": "Working",
+                "Evidence": "Containerized API builds and runs.",
+                "Business / Technical Value": "Improves reproducibility and deployment portability.",
+            },
+            {
+                "Component": "Monitoring",
+                "Status": "Working",
+                "Evidence": "19 features monitored, 0 drifted features.",
+                "Business / Technical Value": "Detects when the model may become unreliable.",
+            },
+            {
+                "Component": "Batch Prediction",
+                "Status": "Working",
+                "Evidence": "4 customers scored; 2 high risk, 0 medium risk, 2 low risk.",
+                "Business / Technical Value": "Creates operational retention queue.",
+            },
+            {
+                "Component": "Streamlit Dashboard",
+                "Status": "Working",
+                "Evidence": "Dashboard pages show model, monitoring, threshold, and batch results.",
+                "Business / Technical Value": "Makes model outputs understandable for business users.",
+            },
+        ]
+    )
+
+    st.dataframe(system_health_df, use_container_width=True)
+
+    st.divider()
+
+    st.subheader("MLOps Architecture Flow")
+
+    architecture_df = pd.DataFrame(
+        [
+            {
+                "Step": 1,
+                "Stage": "Data Validation",
+                "Output": "Validated customer churn dataset",
+                "Purpose": "Protects the pipeline from schema and data quality issues.",
+            },
+            {
+                "Step": 2,
+                "Stage": "Preprocessing",
+                "Output": "Train / validation / test data",
+                "Purpose": "Creates reproducible features and prevents leakage.",
+            },
+            {
+                "Step": 3,
+                "Stage": "Model Training",
+                "Output": "Candidate models with metrics",
+                "Purpose": "Compares models using business-relevant metrics.",
+            },
+            {
+                "Step": 4,
+                "Stage": "MLflow Registry",
+                "Output": "Champion model",
+                "Purpose": "Controls which model is used for serving.",
+            },
+            {
+                "Step": 5,
+                "Stage": "FastAPI Serving",
+                "Output": "Prediction endpoint",
+                "Purpose": "Exposes churn scoring through an API.",
+            },
+            {
+                "Step": 6,
+                "Stage": "Docker",
+                "Output": "Containerized API",
+                "Purpose": "Makes deployment reproducible.",
+            },
+            {
+                "Step": 7,
+                "Stage": "Monitoring",
+                "Output": "Drift and retraining decision",
+                "Purpose": "Checks if the model remains reliable over time.",
+            },
+            {
+                "Step": 8,
+                "Stage": "Dashboard",
+                "Output": "Business-facing control room",
+                "Purpose": "Turns model outputs into retention decisions.",
+            },
+        ]
+    )
+
+    st.dataframe(architecture_df, use_container_width=True)
+
+    st.divider()
+
+    st.subheader("Deployment Readiness Assessment")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.success(
+            "Ready for portfolio demo: The project includes testing, CI, model registry, API serving, Docker, monitoring, batch scoring, and dashboard reporting."
+        )
+
+    with col2:
+        st.info(
+            "Best current use case: Retention prioritization. The model should support customer ranking and campaign targeting, not fully automated customer decisions."
+        )
+
+    st.divider()
+
+    st.subheader("Demo Talking Points")
+
+    st.markdown(
+        """
+        Use this page at the end of the demo to summarize the full system:
+
+        - The project starts with data validation and preprocessing.
+        - The model is trained and tracked using MLflow.
+        - The best model is registered as the champion model.
+        - FastAPI serves real-time predictions.
+        - Docker containerizes the API.
+        - Monitoring checks data drift and prediction drift.
+        - Batch scoring creates a retention action queue.
+        - Streamlit turns technical outputs into business decisions.
+        """
+    )
+
+    st.warning(
+        "Next improvement: Replace remaining hardcoded dashboard values with files generated automatically by the pipeline, such as metrics.json, feature_importance.csv, threshold_analysis.csv, and batch_predictions.csv."
+    )
