@@ -727,7 +727,7 @@ Open:
 http://localhost:8501
 ```
 
-The Streamlit dashboard acts as a business-facing MLOps control room.
+The Streamlit dashboard acts as a business-facing MLOps control room. It converts model outputs, monitoring results, threshold analysis, and batch scoring into decision-ready views for retention prioritization.
 
 Dashboard pages:
 
@@ -741,6 +741,32 @@ Dashboard pages:
 | Monitoring & Drift  | Shows drift status, retraining decision, and monitoring policy                        |
 | Batch Predictions   | Shows scored customers, risk bands, and retention action mapping                      |
 | MLOps System Health | Shows production-readiness checklist and architecture flow                            |
+
+### Dynamic Dashboard Inputs
+
+The dashboard loads values dynamically from generated report files in the `reports/` folder.
+
+| Dashboard Input             | Source File                          |
+| --------------------------- | ------------------------------------ |
+| Final model metrics         | `reports/test_metrics_report.json`   |
+| Confusion matrix            | `reports/test_metrics_report.json`   |
+| Monitoring and drift status | `reports/monitoring_summary.json`    |
+| Batch prediction results    | `reports/batch_predictions.csv`      |
+| Feature importance          | `reports/feature_importance.csv`     |
+| Threshold analysis          | `reports/threshold_analysis.csv`     |
+| Model registry information  | `reports/model_registry_report.json` |
+
+Before running the dashboard, generate the latest reports by running the evaluation, monitoring, batch prediction, feature importance, and threshold analysis scripts.
+
+Recommended report generation flow:
+
+```bash
+python src/models/evaluate_model.py
+python src/monitoring/generate_drift_report.py
+python src/batch/batch_predict.py
+python src/models/feature_importance.py
+python src/models/threshold_analysis.py
+```
 
 The dashboard helps answer:
 
@@ -765,6 +791,10 @@ Current dashboard status:
 | Monitoring & Drift  | Complete |
 | Batch Predictions   | Complete |
 | MLOps System Health | Complete |
+
+Business value:
+
+> The dashboard makes ChurnOps easier to demo because it connects model performance, business trade-offs, monitoring health, and customer-level retention actions in one interface.
 
 ---
 
@@ -985,7 +1015,7 @@ The main business impact is better retention targeting, reduced wasted campaign 
 4. Monitoring is simulated using validation and test splits.
 5. Real production monitoring would require new incoming customer data and actual churn outcomes.
 6. The model artifact and dataset are not committed to Git, so users must rerun the pipeline locally.
-7. Some dashboard values are currently based on the latest known run outputs. A future improvement is to load all values directly from generated report files.
+7. The dashboard depends on generated files in the `reports/` folder. Users must run the pipeline scripts first before the dashboard can display the latest metrics, monitoring results, batch predictions, feature importance, and threshold analysis.
 
 ---
 
@@ -993,7 +1023,7 @@ The main business impact is better retention targeting, reduced wasted campaign 
 
 Possible upgrades:
 
-1. Replace remaining hardcoded dashboard values with generated report files.
+1. Add automated dashboard validation tests to confirm that all report files load correctly.
 2. Add dashboard screenshots to the README.
 3. Deploy FastAPI to a cloud service.
 4. Deploy Streamlit dashboard to a hosted environment.
