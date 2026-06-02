@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import streamlit as st
 
 st.set_page_config(
@@ -131,7 +132,101 @@ elif page == "Model Performance":
 
 elif page == "Confusion Matrix":
     st.title("Confusion Matrix")
-    st.info("Next phase: confusion matrix heatmap and business error analysis.")
+    st.caption(
+        "Final test-set confusion matrix for the champion churn prediction model."
+    )
+
+    st.divider()
+
+    tn = 571
+    fp = 205
+    fn = 62
+    tp = 219
+
+    st.subheader("Confusion Matrix Summary")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("True Negatives", tn)
+    col2.metric("False Positives", fp)
+    col3.metric("False Negatives", fn)
+    col4.metric("True Positives", tp)
+
+    st.divider()
+
+    st.subheader("Confusion Matrix Heatmap")
+
+    matrix = [[tn, fp], [fn, tp]]
+
+    fig, ax = plt.subplots(figsize=(4, 3))
+
+    image = ax.imshow(matrix)
+
+    ax.set_xticks([0, 1])
+    ax.set_yticks([0, 1])
+
+    ax.set_xticklabels(["Pred. No Churn", "Pred. Churn"], fontsize=8)
+    ax.set_yticklabels(["Actual No Churn", "Actual Churn"], fontsize=8)
+
+    ax.set_xlabel("Predicted Label")
+    ax.set_ylabel("Actual Label")
+
+    for i in range(2):
+        for j in range(2):
+            ax.text(
+                j,
+                i,
+                matrix[i][j],
+                ha="center",
+                va="center",
+                fontsize=14,
+                fontweight="bold",
+            )
+
+    fig.colorbar(image, ax=ax)
+    fig.tight_layout()
+    st.pyplot(fig, use_container_width=False)
+
+    st.divider()
+
+    st.subheader("Business Error Analysis")
+
+    error_table = [
+        {
+            "Outcome": "True Negative",
+            "Count": tn,
+            "Meaning": "Correctly identified non-churners.",
+            "Business Impact": "No unnecessary retention action.",
+        },
+        {
+            "Outcome": "False Positive",
+            "Count": fp,
+            "Meaning": "Non-churners incorrectly flagged as churn risks.",
+            "Business Impact": "Possible wasted retention offer cost.",
+        },
+        {
+            "Outcome": "False Negative",
+            "Count": fn,
+            "Meaning": "Actual churners missed by the model.",
+            "Business Impact": "Lost retention opportunity and revenue risk.",
+        },
+        {
+            "Outcome": "True Positive",
+            "Count": tp,
+            "Meaning": "Correctly identified actual churners.",
+            "Business Impact": "Good target group for retention campaign.",
+        },
+    ]
+
+    st.dataframe(error_table, use_container_width=True)
+
+    st.warning(
+        "Key business risk: 62 churners were missed. These false negatives represent customers who may leave without receiving a retention intervention."
+    )
+
+    st.success(
+        "Key business value: 219 churners were correctly identified. These customers can be prioritized for retention outreach."
+    )
 
 elif page == "Threshold Analysis":
     st.title("Threshold Analysis")
