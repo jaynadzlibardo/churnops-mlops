@@ -9,15 +9,40 @@ Endpoints:
 """
 
 from pathlib import Path
+
 import joblib
 import pandas as pd
-
 from fastapi import FastAPI, HTTPException
 
-from src.api.schemas import CustomerData, PredictionResponse, HealthResponse
+from src.api.schemas import CustomerData, HealthResponse, PredictionResponse
 
+
+# ============================================================
+# Model path
+# ============================================================
 
 MODEL_PATH = Path("models/churn_model.pkl")
+
+
+# ============================================================
+# Unified retention policy
+# ============================================================
+# This aligns the API with the dashboard threshold analysis.
+#
+# Low Risk:    churn_probability < 0.40
+# Medium Risk: 0.40 <= churn_probability < 0.60
+# High Risk:   churn_probability >= 0.60
+#
+# The 0.60 threshold is the recommended operational retention
+# threshold from the threshold analysis report.
+
+MEDIUM_RISK_THRESHOLD = 0.40
+RETENTION_THRESHOLD = 0.60
+
+
+# ============================================================
+# FastAPI app
+# ============================================================
 
 app = FastAPI(
     title="ChurnOps API",
@@ -31,6 +56,10 @@ app = FastAPI(
 
 model = None
 
+
+# ============================================================
+# Model loading
+# ============================================================
 
 def load_model():
     """Load trained model from disk."""
@@ -50,23 +79,42 @@ def startup_event():
     model = load_model()
 
 
+# ============================================================
+# Business decision helpers
+# ============================================================
+
 def get_risk_level(churn_probability: float) -> str:
-    """Convert churn probability into business risk level."""
-    if churn_probability < 0.30:
-        return "Low"
-    if churn_probability <= 0.60:
+    """
+    Convert churn probability into business risk level.
+
+    Risk policy:
+    - Low: probability < 0.40
+    - Medium: 0.40 <= probability < 0.60
+    - High: probability >= 0.60
+    """
+    if churn_probability >= RETENTION_THRESHOLD:
+        return "High"
+
+    if churn_probability >= MEDIUM_RISK_THRESHOLD:
         return "Medium"
-    return "High"
+
+    return "Low"
 
 
 def get_business_action(risk_level: str) -> str:
     """Recommend business action based on risk level."""
-    if risk_level == "Low":
-        return "No immediate retention action needed. Continue normal engagement."
-    if risk_level == "Medium":
-        return "Monitor customer and consider low-cost retention engagement."
-    return "Prioritize for retention campaign or proactive customer support."
+    if risk_level == "High":
+        return "Priority retention outreach."
 
+    if risk_level == "Medium":
+        return "Monitor customer or send low-cost engagement offer."
+
+    return "No immediate retention action needed."
+
+
+# ============================================================
+# API endpoints
+# ============================================================
 
 @app.get("/", tags=["Root"])
 def root():
@@ -76,6 +124,14 @@ def root():
         "docs": "/docs",
         "health": "/health",
         "predict": "/predict",
+        "risk_policy": {
+            "low_risk": f"churn_probability < {MEDIUM_RISK_THRESHOLD}",
+            "medium_risk": (
+                f"{MEDIUM_RISK_THRESHOLD} <= churn_probability < "
+                f"{RETENTION_THRESHOLD}"
+            ),
+            "high_risk": f"churn_probability >= {RETENTION_THRESHOLD}",
+        },
     }
 
 
@@ -95,8 +151,8 @@ def predict_churn(customer: CustomerData):
     Predict churn risk for one customer.
 
     Returns:
-    - prediction: 1 means churn, 0 means no churn
-    - prediction_label: Churn or No Churn
+    - prediction: 1 means customer is above the operational retention threshold
+    - prediction_label: Churn Risk or No Churn Risk
     - churn_probability
     - risk_level
     - business_action
@@ -111,9 +167,12 @@ def predict_churn(customer: CustomerData):
         input_df = pd.DataFrame([customer.model_dump()])
 
         churn_probability = float(model.predict_proba(input_df)[:, 1][0])
-        prediction = int(churn_probability >= 0.50)
 
-        prediction_label = "Churn" if prediction == 1 else "No Churn"
+        # Aligned with threshold analysis:
+        # customer is treated as a priority churn risk at >= 0.60
+        prediction = int(churn_probability >= RETENTION_THRESHOLD)
+
+        prediction_label = "Churn Risk" if prediction == 1 else "No Churn Risk"
         risk_level = get_risk_level(churn_probability)
         business_action = get_business_action(risk_level)
 
